@@ -1,0 +1,10 @@
+Package: eclipselock
+Version: ${VERSION}
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.14), libssl3 | libssl1.1
+Maintainer: Jan Fidra <tkmxqrd@gmail.com>
+Description: AES File Encryption Tool
+ eclipselock is a command-line tool for encrypting and
+ decrypting files using AES-256-CBC encryption.

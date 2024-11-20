@@ -1,0 +1,17 @@
+# Build directories
+build/
+bin/
+
+# Debian package files
+*.deb
+eclipselock/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Object files
+*.o
+
+# Backup files
+*~

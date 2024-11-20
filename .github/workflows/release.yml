@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libssl-dev
+    
+    - name: Build project
+      run: |
+        make clean
+        make
+    
+    - name: Create Debian package
+      run: |
+        mkdir -p eclipselock/usr/local/bin
+        cp bin/eclipselock eclipselock/usr/local/bin/
+        chmod 755 eclipselock/usr/local/bin/eclipselock
+        chmod 755 eclipselock/DEBIAN/postinst
+        dpkg-deb --build eclipselock
+        mv eclipselock.deb eclipselock_${{ github.ref_name }}_amd64.deb
+    
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          eclipselock_${{ github.ref_name }}_amd64.deb
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
