@@ -22,12 +22,38 @@ jobs:
         make clean
         make
     
-    - name: Create Debian package
+    - name: Create Debian package structure
       run: |
         mkdir -p eclipselock/usr/local/bin
+        mkdir -p eclipselock/DEBIAN
+        
+        # Create control file
+        cat > eclipselock/DEBIAN/control << EOF
+        Package: eclipselock
+        Version: ${GITHUB_REF#refs/tags/v}
+        Section: utils
+        Priority: optional
+        Architecture: amd64
+        Depends: libc6 (>= 2.14), libssl3 | libssl1.1
+        Maintainer: Jan Fidra <tkmxqrd@gmail.com>
+        Description: AES File Encryption Tool
+         eclipselock is a command-line tool for encrypting and
+         decrypting files using AES-256-CBC encryption.
+        EOF
+        
+        # Create postinst script
+        cat > eclipselock/DEBIAN/postinst << EOF
+        #!/bin/bash
+        chmod 755 /usr/local/bin/eclipselock
+        EOF
+        
+        # Copy binary and set permissions
         cp bin/eclipselock eclipselock/usr/local/bin/
         chmod 755 eclipselock/usr/local/bin/eclipselock
         chmod 755 eclipselock/DEBIAN/postinst
+    
+    - name: Build Debian package
+      run: |
         dpkg-deb --build eclipselock
         mv eclipselock.deb eclipselock_${{ github.ref_name }}_amd64.deb
     
