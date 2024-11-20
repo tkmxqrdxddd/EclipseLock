@@ -9,6 +9,6 @@ pkgbase = eclipselock
 	makedepends = make
 	depends = openssl
 	source = eclipselock-1.0.0.tar.gz
-	sha256sums = SKIP
+	sha256sums = a0081fa955576a83eb95204eeceaaa474124411f9e1c1d02d293777ade2138a3
 
 pkgname = eclipselock
