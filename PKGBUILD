@@ -4,7 +4,7 @@ pkgver=1.0.0
 pkgrel=1
 pkgdesc="A command-line tool for file encryption using AES-256-CBC"
 arch=('x86_64')
-url="https://github.com/janfidra/eclipselock"
+url="https://github.com/tkmxqrdxddd/eclipselock"
 license=('MIT')
 depends=('openssl')
 makedepends=('gcc' 'make')
@@ -14,7 +14,7 @@ sha256sums=('a0081fa955576a83eb95204eeceaaa474124411f9e1c1d02d293777ade2138a3')
 build() {
     cd "$pkgname-$pkgver"
     make
-}
+} 
 
 package() {
     cd "$pkgname-$pkgver"

@@ -8,9 +8,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      actions: write
     
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     
     - name: Install dependencies
       run: |
@@ -24,11 +30,11 @@ jobs:
     
     - name: Create Debian package structure
       run: |
-        mkdir -p eclipselock/usr/local/bin
-        mkdir -p eclipselock/DEBIAN
+        mkdir -p EclipseLock/usr/local/bin
+        mkdir -p EclipseLock/DEBIAN
         
         # Create control file
-        cat > eclipselock/DEBIAN/control << EOF
+        cat > EclipseLock/DEBIAN/control << EOF
         Package: eclipselock
         Version: ${GITHUB_REF#refs/tags/v}
         Section: utils
@@ -37,34 +43,33 @@ jobs:
         Depends: libc6 (>= 2.14), libssl3 | libssl1.1
         Maintainer: Jan Fidra <tkmxqrd@gmail.com>
         Description: AES File Encryption Tool
-         eclipselock is a command-line tool for encrypting and
+         EclipseLock is a command-line tool for encrypting and
          decrypting files using AES-256-CBC encryption.
         EOF
         
+        chmod 644 EclipseLock/DEBIAN/control
+        
         # Create postinst script
-        cat > eclipselock/DEBIAN/postinst << EOF
+        cat > EclipseLock/DEBIAN/postinst << EOF
         #!/bin/bash
         chmod 755 /usr/local/bin/eclipselock
         EOF
         
-        # Copy binary and set permissions
-        cp bin/eclipselock eclipselock/usr/local/bin/
-        chmod 755 eclipselock/usr/local/bin/eclipselock
-        chmod 755 eclipselock/DEBIAN/postinst
+        chmod 755 EclipseLock/DEBIAN/postinst
+        cp bin/eclipselock EclipseLock/usr/local/bin/
+        chmod 755 EclipseLock/usr/local/bin/eclipselock
     
     - name: Build Debian package
       run: |
-        dpkg-deb --build eclipselock
-        mv eclipselock.deb eclipselock_${{ github.ref_name }}_amd64.deb
+        dpkg-deb --build EclipseLock
+        mv EclipseLock.deb eclipselock_${{ github.ref_name }}_amd64.deb
     
     - name: Create Release
-      id: create_release
       uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: |
-          eclipselock_${{ github.ref_name }}_amd64.deb
+        files: eclipselock_${{ github.ref_name }}_amd64.deb
         draft: false
         prerelease: false
         generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
