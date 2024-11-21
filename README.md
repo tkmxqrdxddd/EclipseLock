@@ -69,6 +69,12 @@ cd eclipselock
 makepkg -si
 ```
 
+#### NixOS
+```bash
+nix-build eclipselock.nix
+nix-env -i ./result
+```
+
 ## Usage
 
 Basic command structure:

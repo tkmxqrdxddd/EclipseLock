@@ -1,7 +1,7 @@
 # Build directories
 build/
 bin/
-
+/result
 # Debian package files
 *.deb
 eclipselock/
