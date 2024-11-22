@@ -1,0 +1,50 @@
+name: Build and Package
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up C++ environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake g++ libwxgtk3.0-dev libssl-dev
+
+      - name: Build the project
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+
+      - name: Create .deb package
+        run: |
+          mkdir -p package/DEBIAN
+          echo "Package: eclipselock" > package/DEBIAN/control
+          echo "Version: 1.0" >> package/DEBIAN/control
+          echo "Architecture: amd64" >> package/DEBIAN/control
+          echo "Maintainer: Your Name <youremail@example.com>" >> package/DEBIAN/control
+          echo "Description: EclipseLock Application" >> package/DEBIAN/control
+          cp -r ../build/eclipselock package/usr/local/bin/
+          dpkg-deb --build package eclipselock_1.0_amd64.deb
+
+      - name: Create .exe package
+        run: |
+          sudo apt-get install -y mingw-w64
+          i686-w64-mingw32-g++ -o eclipselock.exe ../src/main.cpp -lwxbase31u -lwxgtk31u -lssl -lcrypto
+
+      - name: Upload .deb and .exe
+        uses: actions/upload-artifact@v2
+        with:
+          name: packages
+          path: |
+            eclipselock_1.0_amd64.deb
+            eclipselock.exe
