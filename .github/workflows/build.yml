@@ -42,7 +42,7 @@ jobs:
           i686-w64-mingw32-g++ -o eclipselock.exe ../src/main.cpp -lwxbase31u -lwxgtk31u -lssl -lcrypto
 
       - name: Upload .deb and .exe
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: packages
           path: |
