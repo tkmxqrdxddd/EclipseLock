@@ -39,8 +39,18 @@ jobs:
         cmake .. -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
           -DwxWidgets_ROOT_DIR=${{env.WXWIN}} \
-          -DOPENSSL_ROOT_DIR=${{env.OPENSSL_ROOT_DIR}}
+          -DOPENSSL_ROOT_DIR=${{env.OPENSSL_ROOT_DIR}} || { echo "CMake failed"; exit 1; }
         mingw32-make
+
+    - name: Clean Build
+      shell: msys2 {0}
+      run: |
+        if [ -f build/CMakeFiles/Makefile ]; then
+          cd build
+          mingw32-make clean
+        else
+          echo "No build files found, skipping clean."
+        fi
 
     - name: Package Application
       shell: msys2 {0}
@@ -62,13 +72,3 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: EclipseLock-Windows
-        path: eclipselock-windows.zip
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: eclipselock-windows.zip
-        draft: false
-        prerelease: false
-        generate_release_notes: true
