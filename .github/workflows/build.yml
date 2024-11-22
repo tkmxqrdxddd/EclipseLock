@@ -16,9 +16,7 @@ jobs:
       - name: Set up C++ environment
         run: |
           sudo apt-get update
-          sudo add-apt-repository ppa:wxwidgets/ppa -y
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake g++ libwxgtk3.0-gtk3-dev libssl-dev
+          sudo apt-get install -y build-essential cmake g++ libwxgtk3.2-dev libssl-dev
 
       - name: Build the project
         run: |
