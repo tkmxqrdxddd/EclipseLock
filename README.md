@@ -33,6 +33,13 @@ sudo apt-get install libssl-dev
 sudo pacman -S openssl gcc openssl
 ```
 
+### Additional Build Dependencies
+
+#### Debian/Ubuntu
+```bash
+sudo apt-get install libwxgtk3.0-gtk
+```
+
 ## Installation
 
 ### From Source

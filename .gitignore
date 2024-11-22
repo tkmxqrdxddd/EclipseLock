@@ -1,17 +1,25 @@
 # Build directories
 build/
 bin/
-/result
-# Debian package files
-*.deb
-eclipselock/
-
-# IDE specific files
-.vscode/
-.idea/
-
-# Object files
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+*.cmake
 *.o
+*.so
+*.a
+*.dll
+*.exe
+*.dSYM/
+*.user
+*.sublime-workspace
+*.sublime-project
 
-# Backup files
+# Temporary files
+*.tmp
+*.log
+*.swp
 *~
+eclipselock
+.vscode/
