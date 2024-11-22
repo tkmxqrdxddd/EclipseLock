@@ -34,29 +34,15 @@ jobs:
     - name: Build Project
       shell: msys2 {0}
       run: |
-        mkdir build
-        cd build
-        cmake .. -G "MSYS Makefiles" \
-          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-          -DwxWidgets_ROOT_DIR=${{env.WXWIN}} \
-          -DOPENSSL_ROOT_DIR=${{env.OPENSSL_ROOT_DIR}} || { echo "CMake failed"; exit 1; }
-        mingw32-make
-
-    - name: Clean Build
-      shell: msys2 {0}
-      run: |
-        if [ -f build/CMakeFiles/Makefile ]; then
-          cd build
-          mingw32-make clean
-        else
-          echo "No build files found, skipping clean."
-        fi
+        g++ -o eclipselock src/main.cpp src/gui/MainWindow.cpp \
+        -Wall -Wextra -O2 -std=c++14 `wx-config --cxxflags` `pkg-config --cflags openssl` \
+        `wx-config --libs` `pkg-config --libs openssl`
 
     - name: Package Application
       shell: msys2 {0}
       run: |
         mkdir dist
-        cp build/eclipselock.exe dist/
+        cp eclipselock dist/
         cp /mingw64/bin/libwx_*.dll dist/
         cp /mingw64/bin/libssl-*.dll dist/
         cp /mingw64/bin/libcrypto-*.dll dist/
