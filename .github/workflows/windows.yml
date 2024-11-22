@@ -30,11 +30,12 @@ jobs:
           mingw-w64-x86_64-make
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-wxWidgets3.2
+          mingw-w64-x86_64-pkg-config
 
     - name: Build Project
       shell: msys2 {0}
       run: |
-        g++ -o eclipselock src/main.cpp src/gui/MainWindow.cpp \
+        g++ -o eclipselock src/main.cpp src/gui/MainWindow.cpp src/AESCrypt.cpp \
         -Wall -Wextra -O2 -std=c++14 `wx-config --cxxflags` `pkg-config --cflags openssl` \
         `wx-config --libs` `pkg-config --libs openssl`
 
