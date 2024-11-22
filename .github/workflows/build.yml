@@ -16,7 +16,9 @@ jobs:
       - name: Set up C++ environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake g++ libwxgtk3.0-dev libssl-dev
+          sudo add-apt-repository ppa:wxwidgets/ppa -y
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake g++ libwxgtk3.0-gtk3-dev libssl-dev
 
       - name: Build the project
         run: |
@@ -29,12 +31,12 @@ jobs:
         run: |
           mkdir -p package/DEBIAN
           echo "Package: eclipselock" > package/DEBIAN/control
-          echo "Version: 1.0" >> package/DEBIAN/control
+          echo "Version: 2.0.0" >> package/DEBIAN/control
           echo "Architecture: amd64" >> package/DEBIAN/control
-          echo "Maintainer: Your Name <youremail@example.com>" >> package/DEBIAN/control
+          echo "Maintainer: Jan Fidra <tkmxqrd@gmail.com>" >> package/DEBIAN/control
           echo "Description: EclipseLock Application" >> package/DEBIAN/control
           cp -r ../build/eclipselock package/usr/local/bin/
-          dpkg-deb --build package eclipselock_1.0_amd64.deb
+          dpkg-deb --build package eclipselock_2.0.0_amd64.deb
 
       - name: Create .exe package
         run: |
@@ -46,5 +48,5 @@ jobs:
         with:
           name: packages
           path: |
-            eclipselock_1.0_amd64.deb
+            eclipselock_2.0.0_amd64.deb
             eclipselock.exe
