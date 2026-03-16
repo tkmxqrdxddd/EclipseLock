@@ -29,6 +29,9 @@ shell.nix
 result/
 .nix-profile/
 
+# Qwen
+.qwen/
+
 # Podman/Docker containers and images
 *.tar
 *.tar.gz

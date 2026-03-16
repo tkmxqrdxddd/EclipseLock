@@ -33,6 +33,7 @@ jobs:
             libxcrypt-devel \
             mesa-libGLU-devel \
             gtk3-devel \
+            diffutils \
             podman
           dnf clean all
       
@@ -49,8 +50,8 @@ jobs:
           ./eclipselock help
           echo "test content" > /tmp/test.txt
           ./eclipselock encrypt /tmp/test.txt testpassword123
-          ./eclipselock decrypt /tmp/test.txt.enc testpassword123
-          diff /tmp/test.txt /tmp/test.txt && echo "CLI test passed!"
+          ./eclipselock decrypt /tmp/test.txt.enc testpassword123 -o /tmp/test.txt.dec
+          diff /tmp/test.txt.dec /tmp/test.txt && echo "CLI test passed!"
       
       - name: Build container image
         run: |
