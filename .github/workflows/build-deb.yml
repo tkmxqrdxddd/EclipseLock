@@ -1,0 +1,128 @@
+name: Build Debian Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            cmake \
+            g++ \
+            make \
+            libwxgtk3.2-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcrypt-dev \
+            libglu1-mesa-dev \
+            debhelper \
+            devscripts \
+            build-essential
+      
+      - name: Create build directory
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          make -j$(nproc)
+      
+      - name: Prepare Debian package structure
+        run: |
+          # Create debian directory structure
+          mkdir -p debian-package
+          mkdir -p debian-package/usr/bin
+          mkdir -p debian-package/usr/share/applications
+          mkdir -p debian-package/usr/share/icons/hicolor/128x128/apps
+          mkdir -p debian-package/DEBIAN
+          
+          # Copy binary
+          cp build/eclipselock debian-package/usr/bin/
+          
+          # Create control file
+          cat > debian-package/DEBIAN/control << EOF
+          Package: eclipselock
+          Version: ${GITHUB_REF#refs/tags/v}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Depends: libwxgtk3.2-1, libssl3, libgtk-3-0, libx11-6, libxrandr2, libxinerama1, libxcrypt1, libglu1-mesa
+          Maintainer: Jan Fidra <tkmxqrd@gmail.com>
+          Description: Secure file encryption tool with modern GUI
+           EclipseLock is a file encryption tool that uses AES-256-CBC
+           encryption. It features both a modern graphical interface
+           and command-line options.
+           .
+           Features:
+           - Modern dark theme GUI
+           - AES-256-CBC encryption/decryption
+           - Secure random IV generation
+           - CLI and GUI modes
+          EOF
+          
+          # Create desktop file
+          cat > debian-package/usr/share/applications/eclipselock.desktop << EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=EclipseLock
+          GenericName=File Encryption
+          Comment=Secure file encryption tool with AES-256-CBC
+          Exec=/usr/bin/eclipselock
+          Icon=eclipselock
+          Terminal=false
+          Categories=Utility;Security;
+          Keywords=encryption;security;file;password;
+          EOF
+      
+      - name: Build .deb package
+        run: |
+          cd debian-package
+          dpkg-deb --build . ../eclipselock_${GITHUB_REF#refs/tags/v}_amd64.deb
+      
+      - name: Create checksums
+        run: |
+          cd debian-package
+          sha256sum ../eclipselock_${GITHUB_REF#refs/tags/v}_amd64.deb > ../eclipselock_${GITHUB_REF#refs/tags/v}_amd64.deb.sha256
+      
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eclipselock-deb
+          path: eclipselock_*.deb
+          retention-days: 30
+      
+      - name: Upload checksum artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eclipselock-checksum
+          path: eclipselock_*.sha256
+          retention-days: 30
+      
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            eclipselock_*.deb
+            eclipselock_*.sha256
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

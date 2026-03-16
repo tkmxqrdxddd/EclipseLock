@@ -1,48 +1,51 @@
 # EclipseLock
 
-EclipseLock is a secure command-line file encryption tool that uses AES-256-CBC encryption with PKCS7 padding. It's designed to provide robust protection for sensitive files while maintaining ease of use.
+EclipseLock is a secure file encryption tool that uses AES-256-CBC encryption with PKCS7 padding. It features both a modern graphical interface and command-line options, designed to provide robust protection for sensitive files while maintaining ease of use.
 
 ## Features
 
-- AES-256-CBC encryption/decryption
-- Secure random IV generation for each encryption
-- PKCS7 padding for block alignment
-- Command-line interface with intuitive options
-- Support for any file type
-- Original file extension preservation
-- Memory-safe implementation using modern C++
-- OpenSSL EVP API for cryptographic operations
+- **Modern Dark Theme GUI** with gradient backgrounds and styled buttons
+- **AES-256-CBC encryption/decryption** with OpenSSL EVP API
+- **Secure random IV generation** for each encryption operation
+- **PKCS7 padding** for block alignment
+- **Dual interface**: Modern GUI and Command-line options
+- **Support for any file type** with original extension preservation
+- **Memory-safe implementation** using modern C++17
+- **Hover effects** on buttons for better UX
+- **Real-time status updates** with progress indication
 
 ## Prerequisites
 
 ### Build Dependencies
 - C++ compiler with C++17 support
+- CMake 3.15+
 - OpenSSL development libraries
-- Make
+- wxWidgets 3.2+ (GTK3)
+- GTK3 development libraries
 
 ### Installation Dependencies by Platform
 
 #### Debian/Ubuntu
 
 ```bash
-sudo apt-get install libssl-dev
+sudo apt-get install libssl-dev libwxgtk3.2-dev libgtk-3-dev cmake g++
 ```
+
 #### Arch Linux
 
 ```bash
-sudo pacman -S openssl gcc openssl
+sudo pacman -S openssl wxgtk3.2 gtk3 cmake gcc make
 ```
 
-### Additional Build Dependencies
+#### Fedora
 
-#### Debian/Ubuntu
 ```bash
-sudo apt-get install libwxgtk3.0-gtk
+sudo dnf install openssl-devel wxGTK-devel gtk3-devel cmake gcc-c++ make
 ```
 
 ## Installation
 
-### From Source
+### From Source (CMake)
 
 ```bash
 # Clone the repository
@@ -50,13 +53,38 @@ git clone https://github.com/janfidra/eclipselock.git
 cd eclipselock
 
 # Build
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make
 
-# Install (optional)
-sudo make install
+# Run
+./eclipselock
 ```
 
-### Package Installation
+### Using Nix
+
+```bash
+# Enter development shell
+nix-shell
+
+# Build
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make
+```
+
+### Using Podman/Docker
+
+```bash
+# Build container
+podman build -t eclipselock .
+
+# Run CLI
+podman run --rm eclipselock help
+
+# Run GUI (requires X11)
+podman run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix eclipselock
+```
 
 #### Debian/Ubuntu
 ```bash
@@ -84,32 +112,51 @@ nix-env -i ./result
 
 ## Usage
 
-Basic command structure:
+### Graphical Interface
+
+Launch the GUI:
 ```bash
-eclipselock [-e|-d] <file> -k <encryption_key>
+./eclipselock
 ```
 
-Options:
+The modern dark-themed GUI provides:
+- **File picker** - Select files to encrypt/decrypt
+- **Password field** - Enter your encryption key
+- **Encrypt button** (blue) - Encrypt the selected file
+- **Decrypt button** (green) - Decrypt .enc files
+- **Progress indicator** - Visual feedback during operations
+- **Status messages** - Real-time operation status
+
+### Command-Line Interface
+
+Basic command structure:
+```bash
+eclipselock <command> <file> <key>
 ```
--e, --encrypt <file>  Encrypt the specified file
--d, --decrypt <file>  Decrypt the specified file
--k, --key <key>      Set the encryption key
--h, --help           Display help message
+
+Commands:
+```
+encrypt <file> <key>   Encrypt the specified file
+decrypt <file> <key>   Decrypt the specified file
+help                   Display help message
 ```
 
 ### Examples
 
 ```bash
-# Encrypt a PDF file
-eclipselock -e secret.pdf -k "my_secure_password"
+# GUI Mode
+./eclipselock
+
+# CLI - Encrypt a PDF file
+./eclipselock encrypt secret.pdf "my_secure_password"
 # Creates: secret.pdf.enc
 
-# Decrypt the file
-eclipselock -d secret.pdf.enc -k "my_secure_password"
+# CLI - Decrypt the file
+./eclipselock decrypt secret.pdf.enc "my_secure_password"
 # Restores: secret.pdf
 
-# Display help
-eclipselock -h
+# CLI - Display help
+./eclipselock help
 ```
 
 ## Security Features
@@ -166,6 +213,27 @@ endLine: 125
 - Include tests for new features
 - Document security-critical code
 - Follow existing code style
+
+### CI/CD
+
+The project uses GitHub Actions for continuous integration and deployment:
+
+- **build.yml** - Runs on every push/PR:
+  - Builds on Fedora 39 container
+  - Builds with nix-shell (NixOS 24.05)
+  - Runs CLI encryption/decryption tests
+  - Builds and tests Podman container
+
+- **build-deb.yml** - Runs on version tags (v*):
+  - Builds .deb package for Debian/Ubuntu
+  - Creates GitHub release with artifacts
+  - Uploads package and checksums
+
+To trigger a release build:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## Testing
 

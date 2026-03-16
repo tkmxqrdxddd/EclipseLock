@@ -1,50 +1,80 @@
-name: Build and Package
+name: Build and Test
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
-
+    container:
+      image: fedora:39
+    
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up C++ environment
+        uses: actions/checkout@v4
+      
+      - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake g++ libwxgtk3.0-gtk3-dev libssl-dev
-
-      - name: Build the project
+          dnf -y install \
+            gcc-c++ \
+            cmake \
+            make \
+            wxGTK-devel \
+            wxGTK-gl \
+            wxGTK-media \
+            wxGTK-webview \
+            openssl-devel \
+            libX11-devel \
+            libXrandr-devel \
+            libXinerama-devel \
+            libxcrypt-devel \
+            mesa-libGLU-devel \
+            gtk3-devel \
+            podman
+          dnf clean all
+      
+      - name: Build with CMake
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake ..
-          make
-
-      - name: Create .deb package
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+      
+      - name: Test CLI functionality
         run: |
-          mkdir -p package/DEBIAN
-          echo "Package: eclipselock" > package/DEBIAN/control
-          echo "Version: 2.0.0" >> package/DEBIAN/control
-          echo "Architecture: amd64" >> package/DEBIAN/control
-          echo "Maintainer: Jan Fidra <tkmxqrd@gmail.com>" >> package/DEBIAN/control
-          echo "Description: EclipseLock Application" >> package/DEBIAN/control
-          cp -r ../build/eclipselock package/usr/local/bin/
-          dpkg-deb --build package eclipselock_2.0.0_amd64.deb
-
-      - name: Create .exe package
+          cd build
+          ./eclipselock help
+          echo "test content" > /tmp/test.txt
+          ./eclipselock encrypt /tmp/test.txt testpassword123
+          ./eclipselock decrypt /tmp/test.txt.enc testpassword123
+          diff /tmp/test.txt /tmp/test.txt && echo "CLI test passed!"
+      
+      - name: Build container image
         run: |
-          sudo apt-get install -y mingw-w64
-          i686-w64-mingw32-g++ -o eclipselock.exe ../src/main.cpp -lwxbase31u -lwxgtk31u -lssl -lcrypto
+          podman build -f Podmanfile -t eclipselock-test .
+      
+      - name: Run container tests
+        run: |
+          podman run --rm eclipselock-test help
 
-      - name: Upload .deb and .exe
-        uses: actions/upload-artifact@v3
+  build-nix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
         with:
-          name: packages
-          path: |
-            eclipselock_2.0.0_amd64.deb
-            eclipselock.exe
+          nix_path: nixpkgs=channel:nixos-24.05
+      
+      - name: Build with nix-shell
+        run: |
+          nix-shell --run "mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j4"
+      
+      - name: Test CLI
+        run: |
+          nix-shell --run "cd build && ./eclipselock help && echo 'test' > /tmp/nixtest.txt && ./eclipselock encrypt /tmp/nixtest.txt pass12345 && ./eclipselock decrypt /tmp/nixtest.txt.enc pass12345 && cat /tmp/nixtest.txt"

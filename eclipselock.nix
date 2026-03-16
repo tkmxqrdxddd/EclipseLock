@@ -4,20 +4,26 @@ let
   eclipselock = pkgs.stdenv.mkDerivation {
     name = "eclipselock";
     src = ./.;
+    
     buildInputs = with pkgs; [
+      cmake
       makeWrapper
       openssl
+      wxGTK32
+      gtk3
+      libX11
+      libXrandr
+      libXinerama
     ];
 
-    buildPhase = ''
-      mkdir -p build
-      g++ -std=c++17 -o build/eclipselock src/main.cpp -lssl -lcrypto
-    '';
+    cmakeFlags = [
+      "-DCMAKE_BUILD_TYPE=Release"
+    ];
 
-    installPhase = ''
-      mkdir -p $out/bin
-      cp build/eclipselock $out/bin/eclipselock
-      wrapProgram $out/bin/eclipselock --prefix "PATH" : "${pkgs.makeWrapper}/bin:$PATH"
+    postInstall = ''
+      wrapProgram $out/bin/eclipselock \
+        --prefix "PATH" : "${pkgs.lib.makeBinPath [ pkgs.openssl ]}" \
+        --set "LD_LIBRARY_PATH" "${pkgs.lib.makeLibraryPath [ pkgs.wxGTK32 pkgs.gtk3 pkgs.libX11 ]}"
     '';
   };
 in

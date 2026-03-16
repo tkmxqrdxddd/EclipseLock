@@ -23,3 +23,24 @@ cmake_install.cmake
 *~
 eclipselock
 .vscode/
+
+# Nix
+shell.nix
+result/
+.nix-profile/
+
+# Podman/Docker containers and images
+*.tar
+*.tar.gz
+.containerenv
+.dockerenv
+*.containerfile
+Containerfile
+*.dockerfile
+Dockerfile
+Podmanfile
+.docker/
+.podman/
+docker-compose*.yml
+.dockerignore
+test-podman.sh
