@@ -62,7 +62,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-wxWidgets3.2 mingw-w64-x86_64-gcc
+          install: mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-gcc mingw-w64-x86_64-libwxWidgets
 
       - name: Build Windows executable
         shell: msys2 {0}
