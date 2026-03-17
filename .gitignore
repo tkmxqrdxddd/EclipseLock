@@ -16,6 +16,18 @@ cmake_install.cmake
 *.sublime-workspace
 *.sublime-project
 
+# Package/release artifacts
+*.deb
+*.deb.sha256
+*.pkg.tar.zst
+*.pkg.tar.zst.sha256
+*.sha256
+eclipselock_*.deb
+eclipselock_*.deb.sha256
+eclipselock-*.pkg.tar.zst
+eclipselock-*.exe
+eclipselock.exe
+
 # Temporary files
 *.tmp
 *.log
