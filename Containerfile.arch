@@ -1,0 +1,47 @@
+# Containerfile for building EclipseLock Arch Linux package
+# Build: podman build -f Containerfile.arch -t eclipselock-arch .
+# Extract: podman run --rm eclipselock-arch cat /output/eclipselock-1.1.0-1-x86_64.pkg.tar.zst > eclipselock-1.1.0-1-x86_64.pkg.tar.zst
+
+FROM archlinux:base-devel
+
+# Create non-root user for makepkg
+RUN useradd -m -G wheel builder && \
+    echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Install dependencies (both build and runtime)
+RUN pacman -Sy --noconfirm \
+    openssl \
+    wxwidgets-common \
+    wxwidgets-gtk3 \
+    cmake \
+    gtk3 \
+    pkgconf \
+    && pacman -Scc --noconfirm
+
+# Switch to builder user
+USER builder
+
+# Set working directory
+WORKDIR /home/builder
+
+# Copy source files and create source tarball
+COPY --chown=builder:builder . eclipselock-src/
+RUN cd eclipselock-src && \
+    tar -czf ../eclipselock-1.1.0.tar.gz --transform 's,^,eclipselock-1.1.0/,' . && \
+    cd .. && \
+    mkdir -p build && \
+    cp eclipselock-1.1.0.tar.gz build/ && \
+    cp -r eclipselock-src/* build/
+
+WORKDIR /home/builder/build
+
+# Build the package (skip integrity check since we're building from local source)
+RUN makepkg -sf --noconfirm --skipinteg
+
+# Create output directory
+USER root
+RUN mkdir -p /output && \
+    cp /home/builder/build/*.pkg.tar.zst /output/ && \
+    cp /home/builder/build/*.tar.gz /output/ 2>/dev/null || true
+
+CMD ["sh", "-c", "echo 'Arch package built at /output/'"]

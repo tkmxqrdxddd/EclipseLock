@@ -79,3 +79,26 @@ jobs:
       - name: Test CLI
         run: |
           nix-shell --run "cd build && ./eclipselock help && echo 'test' > /tmp/nixtest.txt && ./eclipselock encrypt /tmp/nixtest.txt pass12345 && ./eclipselock decrypt /tmp/nixtest.txt.enc pass12345 && cat /tmp/nixtest.txt"
+
+  test-containerfiles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build and smoke-test Debian Containerfile
+        run: |
+          podman build -f Containerfile -t eclipselock-deb-test --build-arg VERSION=0.0.0-test .
+          podman run --rm eclipselock-deb-test ls -l /output
+          podman run --rm eclipselock-deb-test sh -c "test -f /output/eclipselock_0.0.0-test_amd64.deb"
+
+      - name: Build and smoke-test Windows Containerfile
+        run: |
+          podman build -f Containerfile.windows -t eclipselock-windows-test .
+          podman run --rm eclipselock-windows-test ls -l /output
+          podman run --rm eclipselock-windows-test sh -c "test -f /output/eclipselock.exe"

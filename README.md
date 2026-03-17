@@ -43,6 +43,27 @@ sudo pacman -S openssl wxgtk3.2 gtk3 cmake gcc make
 sudo dnf install openssl-devel wxGTK-devel gtk3-devel cmake gcc-c++ make
 ```
 
+#### Windows (Native Build)
+
+```powershell
+# Using vcpkg
+git clone https://github.com/Microsoft/vcpkg.git
+.\vcpkg\bootstrap-vcpkg.bat
+vcpkg install wxwidgets:x64-windows openssl:x64-windows
+
+# Then build with CMake or use the PowerShell script
+.\build-windows-native.ps1 -InstallDeps
+.\build-windows-native.ps1
+```
+
+#### Windows (MinGW Cross-Compile from Linux)
+
+```bash
+# Using Podman
+podman build -f Containerfile.windows -t eclipselock-windows .
+podman run --rm eclipselock-windows cat /output/eclipselock.exe > eclipselock.exe
+```
+
 ## Installation
 
 ### From Source (CMake)
@@ -108,6 +129,44 @@ makepkg -si
 ```bash
 nix-build eclipselock.nix
 nix-env -i ./result
+```
+
+#### Windows
+
+**Option 1: Using the Installer (Recommended)**
+```powershell
+# Download and run the installer
+eclipselock_1.1.0_windows_installer.exe
+
+# Or using Chocolatey (if available)
+choco install eclipselock
+```
+
+**Option 2: Using the Portable Executable**
+```powershell
+# Download eclipselock.exe and run directly
+.\eclipselock.exe
+```
+
+**Option 3: Build from Source**
+```powershell
+# Install dependencies via vcpkg
+.\build-windows-native.ps1 -InstallDeps
+
+# Build
+.\build-windows-native.ps1
+
+# Run
+.\bin\eclipselock.exe
+```
+
+**Option 4: Using NSIS Installer**
+```powershell
+# After building, create the installer
+makensis installer.nsi
+
+# Run the generated installer
+.\eclipselock_1.1.0_windows_installer.exe
 ```
 
 ## Usage

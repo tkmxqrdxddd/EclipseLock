@@ -2,6 +2,7 @@
 
 #include <wx/wx.h>
 #include <wx/filepicker.h>
+#include <functional>
 #include "AESCrypt.h"
 
 /**
