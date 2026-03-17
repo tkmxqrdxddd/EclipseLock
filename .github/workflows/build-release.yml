@@ -29,7 +29,6 @@ jobs:
             libx11-dev \
             libxrandr-dev \
             libxinerama-dev \
-            libxcrypt0-dev \
             libglu1-mesa-dev \
             libgtk-3-dev
 
