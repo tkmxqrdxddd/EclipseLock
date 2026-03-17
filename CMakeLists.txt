@@ -27,43 +27,16 @@ else()
     set(PLATFORM_WINDOWS FALSE)
 endif()
 
-# For MinGW cross-compilation, set paths manually BEFORE find_package
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # MinGW cross-compilation mode - use command line provided paths or defaults
-    if(NOT wxWidgets_INCLUDE_DIRS)
-        set(wxWidgets_INCLUDE_DIRS "/usr/x86_64-w64-mingw32/sys-root/mingw/include/wx-3.0")
-    endif()
-    if(NOT wxWidgets_LIBRARIES)
-        set(wxWidgets_LIBRARIES
-            "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_mswu_core-3.0-x86_64-w64-mingw32.dll.a"
-            "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_mswu_adv-3.0-x86_64-w64-mingw32.dll.a"
-            "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_baseu-3.0-x86_64-w64-mingw32.dll.a"
-            "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_baseu_net-3.0-x86_64-w64-mingw32.dll.a")
-    endif()
-    set(wxWidgets_FOUND TRUE)
+# Find required packages for native builds
+find_package(wxWidgets REQUIRED COMPONENTS core base)
+if(NOT wxWidgets_FOUND)
+    message(FATAL_ERROR "wxWidgets not found. Please install wxWidgets.")
+endif()
+include(${wxWidgets_USE_FILE})
 
-    if(NOT OPENSSL_INCLUDE_DIR)
-        set(OPENSSL_INCLUDE_DIR "/usr/x86_64-w64-mingw32/sys-root/mingw/include")
-    endif()
-    if(NOT OPENSSL_SSL_LIBRARY)
-        set(OPENSSL_SSL_LIBRARY "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libssl.dll.a")
-    endif()
-    if(NOT OPENSSL_CRYPTO_LIBRARY)
-        set(OPENSSL_CRYPTO_LIBRARY "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libcrypto.dll.a")
-    endif()
-    set(OpenSSL_FOUND TRUE)
-else()
-    # Find required packages for native builds
-    find_package(wxWidgets REQUIRED COMPONENTS core base)
-    if(NOT wxWidgets_FOUND)
-        message(FATAL_ERROR "wxWidgets not found. Please install wxWidgets.")
-    endif()
-    include(${wxWidgets_USE_FILE})
-
-    find_package(OpenSSL REQUIRED)
-    if(NOT OpenSSL_FOUND)
-        message(FATAL_ERROR "OpenSSL not found. Please install OpenSSL.")
-    endif()
+find_package(OpenSSL REQUIRED)
+if(NOT OpenSSL_FOUND)
+    message(FATAL_ERROR "OpenSSL not found. Please install OpenSSL.")
 endif()
 
 # Source files
@@ -119,28 +92,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
-# Add wxWidgets include directories for MinGW
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    message(STATUS "MinGW cross-compilation detected, adding wxWidgets includes: ${wxWidgets_INCLUDE_DIRS}")
-    target_include_directories(${PROJECT_NAME} PRIVATE ${wxWidgets_INCLUDE_DIRS})
-    target_include_directories(${PROJECT_NAME} PRIVATE ${OPENSSL_INCLUDE_DIR})
-    # Add wx/setup.h include path
-    if(WX_SETUP_INCLUDE_DIR)
-        target_include_directories(${PROJECT_NAME} PRIVATE ${WX_SETUP_INCLUDE_DIR})
-    endif()
-endif()
-
 # Link libraries
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # MinGW cross-compilation mode - use direct library paths
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-        ${wxWidgets_LIBRARIES}
-        ${OPENSSL_SSL_LIBRARY}
-        ${OPENSSL_CRYPTO_LIBRARY}
-        ${WINDOWS_LIBS}
-    )
-elseif(PLATFORM_WINDOWS)
-    # Native Windows (MSVC)
+if(PLATFORM_WINDOWS)
+    # Windows build
     target_link_libraries(${PROJECT_NAME} PRIVATE
         ${wxWidgets_LIBRARIES}
         OpenSSL::SSL
