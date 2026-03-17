@@ -67,7 +67,8 @@ jobs:
       - name: Build Windows executable
         shell: msys2 {0}
         run: |
-          mkdir -p build-windows
+          export PATH="/mingw64/bin:$PATH"
+          cp -r assets build-windows/
           cd build-windows
           cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
           mingw32-make -j$(nproc)
