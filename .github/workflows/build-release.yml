@@ -63,24 +63,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             mingw-w64 \
+            mingw-w64-x86-64-libwxgtk3.2 \
             cmake \
-            make \
-            unzip \
-            wget
-
-      - name: Setup MinGW wxWidgets
-        run: |
-          cd /tmp
-          wget -q https://github.com/nicool2000/MinGW-w64-wxWidgets/releases/download/v3.2.2.1-w64/mingw64-wxWidgets3.2.zip
-          sudo unzip -q mingw64-wxWidgets3.2.zip -d /usr/x86_64-w64-mingw32/sys-root/mingw
-          rm mingw64-wxWidgets3.2.zip
-
-      - name: Setup MinGW OpenSSL
-        run: |
-          cd /tmp
-          wget -q https://github.com/nicool2000/MinGW-w64-OpenSSL/releases/download/v1.1.1s-w64/mingw64-openssl.zip
-          sudo unzip -q mingw64-openssl.zip -d /usr/x86_64-w64-mingw32/sys-root/mingw
-          rm mingw64-openssl.zip
+            make
 
       - name: Build Windows executable
         run: |
@@ -91,17 +76,7 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
             -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
-            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
-            -DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32 \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DwxWidgets_INCLUDE_DIRS=/usr/x86_64-w64-mingw32/sys-root/mingw/include/wx-3.0 \
-            -DWX_SETUP_INCLUDE_DIR=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/wx/include/x86_64-w64-mingw32-msw-unicode-3.0 \
-            -DwxWidgets_LIBRARIES='/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_mswu_core-3.0-x86_64-w64-mingw32.dll.a;/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_mswu_adv-3.0-x86_64-w64-mingw32.dll.a;/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_baseu-3.0-x86_64-w64-mingw32.dll.a;/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libwx_baseu_net-3.0-x86_64-w64-mingw32.dll.a' \
-            -DOPENSSL_INCLUDE_DIR=/usr/x86_64-w64-mingw32/sys-root/mingw/include \
-            -DOPENSSL_SSL_LIBRARY=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libssl.dll.a \
-            -DOPENSSL_CRYPTO_LIBRARY=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libcrypto.dll.a
+            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres
           make -j$(nproc)
 
       - name: Get version
