@@ -1,11 +1,7 @@
-name: Build Windows Executable
+name: Build Windows
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   build-windows:
@@ -24,7 +20,8 @@ jobs:
             mingw64-wxWidgets3 \
             mingw64-openssl \
             cmake \
-            make
+            make \
+            diffutils
           dnf clean all
 
       - name: Build Windows executable
@@ -49,13 +46,13 @@ jobs:
             -DOPENSSL_CRYPTO_LIBRARY=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/libcrypto.dll.a
           make -j$(nproc)
 
-      - name: Package exe
-        run: |
-          cp build-windows/eclipselock.exe eclipselock-${GITHUB_SHA}-windows.exe
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Upload Windows exe artifact
         uses: actions/upload-artifact@v4
         with:
           name: eclipselock-windows-exe
-          path: eclipselock-*-windows.exe
+          path: build-windows/eclipselock.exe
           retention-days: 30

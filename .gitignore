@@ -51,11 +51,16 @@ result/
 .dockerenv
 *.containerfile
 Containerfile
+Containerfile.*
 *.dockerfile
 Dockerfile
 Podmanfile
+Podmanfile.*
 .docker/
 .podman/
 docker-compose*.yml
 .dockerignore
 test-podman.sh
+.podman/
+.containers/
+.aider*
