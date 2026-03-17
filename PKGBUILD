@@ -9,7 +9,7 @@ license=('MIT')
 depends=('openssl' 'wxwidgets' 'gtk3')
 makedepends=('cmake' 'gcc' 'make')
 source=("$pkgname-$pkgver.tar.gz")
-sha256sums=('CHANGE_ME')
+sha256sums=('e1528d9525809afea6e9ae21e6c36a694d47f9b47090b07e73dfb1a9e53af166')
 
 build() {
     cd "$pkgname-$pkgver"
