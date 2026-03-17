@@ -1,7 +1,6 @@
 #include <windows.h>
 
-// Icon resource (commented out if icon file doesn't exist)
-// IDI_ICON1 ICON "assets/icon.ico"
+IDI_ICON1 ICON "assets/icon.ico"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     1,1,0,0
