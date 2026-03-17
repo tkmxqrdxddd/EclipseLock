@@ -49,7 +49,7 @@ jobs:
         with:
           category: "/language:cpp"
 
-  build-and-release:
+  build-windows:
     needs: code-safety
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
@@ -58,12 +58,127 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Windows
-        uses: ./.github/workflows/build-windows.yml
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            mingw-w64 \
+            cmake \
+            make
 
-      - name: Build DEB
-        uses: ./.github/workflows/build-deb.yml
+      - name: Build Windows executable
+        run: |
+          mkdir -p build-windows
+          cd build-windows
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres
+          make -j$(nproc)
 
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload Windows exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eclipselock-windows-exe
+          path: build-windows/eclipselock.exe
+          retention-days: 30
+
+  build-deb:
+    needs: code-safety
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            g++ \
+            make \
+            libwxgtk3.0-gtk3-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libglu1-mesa-dev \
+            debhelper \
+            devscripts \
+            build-essential
+
+      - name: Create build directory
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          make -j$(nproc)
+
+      - name: Prepare Debian package structure
+        run: |
+          mkdir -p debian-package
+          mkdir -p debian-package/usr/bin
+          mkdir -p debian-package/usr/share/applications
+          mkdir -p debian-package/usr/share/icons/hicolor/128x128/apps
+          mkdir -p debian-package/DEBIAN
+          
+          cp build/eclipselock debian-package/usr/bin/
+          
+          cat > debian-package/DEBIAN/control << EOF
+          Package: eclipselock
+          Version: ${GITHUB_REF#refs/tags/v}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Depends: libwxgtk3.0-gtk3-1, libssl3, libgtk-3-0, libx11-6, libxrandr2, libxinerama1, libglu1-mesa
+          Maintainer: Jan Fidra <tkmxqrd@gmail.com>
+          Description: Secure file encryption tool with modern GUI
+           EclipseLock is a file encryption tool that uses AES-256-CBC
+           encryption. It features both a modern graphical interface
+           and command-line options.
+          EOF
+          
+          cat > debian-package/usr/share/applications/eclipselock.desktop << EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=EclipseLock
+          GenericName=File Encryption
+          Comment=Secure file encryption tool with AES-256-CBC
+          Exec=/usr/bin/eclipselock
+          Icon=eclipselock
+          Terminal=false
+          Categories=Utility;Security;
+          Keywords=encryption;security;file;password;
+          EOF
+
+      - name: Build .deb package
+        run: |
+          cd debian-package
+          dpkg-deb --build . ../eclipselock_${GITHUB_REF#refs/tags/v}_amd64.deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eclipselock-deb
+          path: eclipselock_*.deb
+          retention-days: 30
+
+  release:
+    needs: [build-windows, build-deb]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
