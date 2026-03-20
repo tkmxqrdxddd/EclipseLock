@@ -70,7 +70,7 @@ podman run --rm eclipselock-windows cat /output/eclipselock.exe > eclipselock.ex
 
 ```bash
 # Clone the repository
-git clone https://github.com/janfidra/eclipselock.git
+git clone https://github.com/tkmxqrdxddd/eclipselock.git
 cd eclipselock
 
 # Build
