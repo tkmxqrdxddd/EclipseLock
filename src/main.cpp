@@ -29,18 +29,12 @@
  */
 int main(int argc, char* argv[])
 {
-    // Create GTK application with unique application ID
     auto app = Gtk::Application::create(argc, argv, "com.eclipselock.app");
 
-    // Initialize OpenSSL libraries
-    // Loads all available encryption algorithms
     OpenSSL_add_all_algorithms();
-    // Loads human-readable error strings for OpenSSL error codes
     ERR_load_crypto_strings();
 
-    // Create and display the main application window
     MainWindow window;
 
-    // Run the GTK main loop
     return app->run(window);
 }
