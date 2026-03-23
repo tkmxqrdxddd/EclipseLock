@@ -52,34 +52,18 @@ jobs:
   build-windows:
     needs: code-safety
     runs-on: windows-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: false
+    continue-on-error: true
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-make mingw-w64-x86_64-cmake mingw-w64-x86_64-gcc mingw-w64-x86_64-wxwidgets3.2-msw
-
-      - name: Build Windows executable
-        shell: msys2 {0}
+      - name: Note
         run: |
-          export PATH="/mingw64/bin:$PATH"
-          mkdir -p build-windows/assets
-          cp -r assets/* build-windows/assets/
-          cd build-windows
-          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
-          mingw32-make -j$(nproc)
-
-      - name: Upload Windows exe artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: eclipselock-windows-exe
-          path: build-windows/eclipselock.exe
-          retention-days: 30
+          echo "Windows build is currently unavailable."
+          echo "EclipseLock v2.x uses GTKmm 3.0 which is primarily available on Linux."
+          echo "For Windows support, please use EclipseLock v1.x or build from source with MSYS2."
 
   build-deb:
     needs: code-safety
@@ -166,17 +150,11 @@ jobs:
           retention-days: 30
 
   release:
-    needs: [build-windows, build-deb]
+    needs: [build-deb]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: eclipselock-windows-exe
-          path: artifacts/
-
       - name: Download DEB artifact
         uses: actions/download-artifact@v4
         with:
@@ -187,7 +165,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/eclipselock.exe
             artifacts/eclipselock_*.deb
           generate_release_notes: true
           draft: false
