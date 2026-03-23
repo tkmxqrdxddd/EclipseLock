@@ -24,7 +24,7 @@ jobs:
             g++ \
             cmake \
             make \
-            libwxgtk3.2-dev \
+            libgtkmm-3.0-dev \
             libssl-dev \
             libx11-dev \
             libxrandr-dev \
@@ -97,7 +97,7 @@ jobs:
             cmake \
             g++ \
             make \
-            libwxgtk3.2-dev \
+            libgtkmm-3.0-dev \
             libssl-dev \
             libgtk-3-dev \
             libx11-dev \
@@ -131,7 +131,7 @@ jobs:
           Section: utils
           Priority: optional
           Architecture: amd64
-          Depends: libwxgtk3.2-1, libssl3t64, libgtk-3-0, libx11-6, libxrandr2, libxinerama1, libglu1-mesa
+          Depends: libgtkmm-3.0-1v5, libssl3t64, libgtk-3-0, libx11-6, libxrandr2, libxinerama1, libglu1-mesa
           Maintainer: Jan Fidra <tkmxqrd@gmail.com>
           Description: Secure file encryption tool with modern GUI
            EclipseLock is a file encryption tool that uses AES-256-CBC
