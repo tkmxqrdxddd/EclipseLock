@@ -1,190 +1,202 @@
 #include "AESCrypt.h"
 #include <openssl/rand.h>
 #include <openssl/evp.h>
-#include <openssl/sha.h>
 #include <stdexcept>
 #include <cstring>
 #include <fstream>
-#include <algorithm>
 
-AESKey::AESKey(const std::string& password) {
-    // Derive a 256-bit key from the password using SHA-256
-    std::array<unsigned char, SHA256_DIGEST_LENGTH> hash;
-    SHA256(reinterpret_cast<const unsigned char*>(password.c_str()), 
-           password.size(), hash.data());
-    
-    // Copy the hash to the key array
-    std::copy(hash.begin(), hash.begin() + key_.size(), key_.begin());
+/**
+ * AESKey Constructor
+ *
+ * Initializes the key array to zero, then copies the input string.
+ * Uses memset for zero-initialization and strncpy for safe copying.
+ * If key_str is shorter than 32 bytes, remaining bytes stay zero.
+ * If longer, the key is truncated to 32 bytes.
+ */
+AESKey::AESKey(const std::string& key_str) {
+    // Zero-initialize the entire key array for security
+    memset(this->key, 0, sizeof(this->key));
+    // Copy the key string, truncating if necessary
+    strncpy((char*)this->key, key_str.c_str(), sizeof(this->key));
 }
 
-AESCrypt::AESCrypt(const AESKey& key) : key_(key) {
-    generateIV();
+/**
+ * AESCrypt Constructor
+ *
+ * Initializes the IV to zero. The IV should be set to a random value
+ * before encryption using setIV() for secure operation.
+ */
+AESCrypt::AESCrypt(const AESKey& key) : key(key) {
+    // Zero-initialize the IV
+    memset(iv, 0, AES_BLOCK_SIZE);
 }
 
-void AESCrypt::setKey(const AESKey& key) {
-    key_ = key;
+/**
+ * Sets the initialization vector for encryption/decryption.
+ * Copies 16 bytes (AES_BLOCK_SIZE) from the provided IV.
+ */
+void AESCrypt::setIV(unsigned char* iv) {
+    memcpy(this->iv, iv, AES_BLOCK_SIZE);
 }
 
-void AESCrypt::generateIV() {
-    if (RAND_bytes(iv_.data(), static_cast<int>(iv_.size())) != 1) {
-        throw std::runtime_error("Failed to generate random IV");
-    }
+/**
+ * Returns a pointer to the current IV.
+ * Used to retrieve the randomly generated IV for storage with encrypted data.
+ */
+unsigned char* AESCrypt::getIV() {
+    return iv;
 }
 
-void AESCrypt::setIV(const unsigned char* iv) {
-    std::copy(iv, iv + AES_BLOCK_SIZE, iv_.begin());
-}
-
-const unsigned char* AESCrypt::getIV() const {
-    return iv_.data();
-}
-
-std::vector<unsigned char> AESCrypt::encrypt(const std::vector<unsigned char>& data) {
+/**
+ * Encrypts data using AES-256-CBC mode.
+ *
+ * Uses OpenSSL's EVP API for high-level cryptographic operations.
+ * The output buffer is pre-allocated with extra space for padding.
+ *
+ * @param data The plaintext data to encrypt
+ * @return Encrypted ciphertext as a byte vector
+ * @throws std::runtime_error on encryption failure
+ */
+std::vector<unsigned char> AESCrypt::enc(const std::vector<unsigned char>& data) {
+    // Create a new cipher context for encryption
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) {
-        throw std::runtime_error("Failed to create encryption context");
-    }
-
+    // Allocate ciphertext buffer with extra space for PKCS7 padding
     std::vector<unsigned char> ciphertext(data.size() + AES_BLOCK_SIZE);
-    int len = 0;
-    int ciphertext_len = 0;
+    int len;
 
-    try {
-        if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, key_.getKey().data(), iv_.data()) != 1) {
-            EVP_CIPHER_CTX_free(ctx);
-            throw std::runtime_error("Encryption initialization failed");
-        }
-
-        if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, data.data(), static_cast<int>(data.size())) != 1) {
-            EVP_CIPHER_CTX_free(ctx);
-            throw std::runtime_error("Encryption update failed");
-        }
-        ciphertext_len = len;
-
-        if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
-            EVP_CIPHER_CTX_free(ctx);
-            throw std::runtime_error("Encryption finalization failed");
-        }
-        ciphertext_len += len;
-
-        ciphertext.resize(ciphertext_len);
-    } catch (...) {
+    // Initialize encryption operation with AES-256-CBC
+    if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key.key, iv)) {
         EVP_CIPHER_CTX_free(ctx);
-        throw;
+        throw std::runtime_error("Encryption initialization failed");
     }
 
+    // Encrypt the data
+    if (!EVP_EncryptUpdate(ctx, ciphertext.data(), &len, data.data(), data.size())) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Encryption update failed");
+    }
+
+    int ciphertext_len = len;
+
+    // Finalize encryption, handling PKCS7 padding
+    if (!EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len)) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Encryption finalization failed");
+    }
+
+    ciphertext_len += len;
+    ciphertext.resize(ciphertext_len);
     EVP_CIPHER_CTX_free(ctx);
     return ciphertext;
 }
 
-std::vector<unsigned char> AESCrypt::decrypt(const std::vector<unsigned char>& data) {
+/**
+ * Decrypts data using AES-256-CBC mode.
+ *
+ * Uses OpenSSL's EVP API for high-level cryptographic operations.
+ * The output buffer is pre-allocated to match input size.
+ *
+ * @param data The ciphertext data to decrypt
+ * @return Decrypted plaintext as a byte vector
+ * @throws std::runtime_error on decryption failure
+ */
+std::vector<unsigned char> AESCrypt::dec(const std::vector<unsigned char>& data) {
+    // Create a new cipher context for decryption
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) {
-        throw std::runtime_error("Failed to create decryption context");
-    }
-
+    // Allocate plaintext buffer
     std::vector<unsigned char> plaintext(data.size());
-    int len = 0;
-    int plaintext_len = 0;
+    int len;
 
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, key_.getKey().data(), iv_.data()) != 1) {
+    // Initialize decryption operation with AES-256-CBC
+    if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key.key, iv)) {
         EVP_CIPHER_CTX_free(ctx);
         throw std::runtime_error("Decryption initialization failed");
     }
 
-    if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, data.data(), static_cast<int>(data.size())) != 1) {
+    // Decrypt the data
+    if (!EVP_DecryptUpdate(ctx, plaintext.data(), &len, data.data(), data.size())) {
         EVP_CIPHER_CTX_free(ctx);
         throw std::runtime_error("Decryption update failed");
     }
-    plaintext_len = len;
 
-    if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) != 1) {
+    int plaintext_len = len;
+
+    // Finalize decryption, removing PKCS7 padding
+    if (!EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len)) {
         EVP_CIPHER_CTX_free(ctx);
-        throw std::runtime_error("Decryption failed - incorrect key or corrupted file");
+        throw std::runtime_error("Decryption finalization failed");
     }
-    plaintext_len += len;
 
+    plaintext_len += len;
     plaintext.resize(plaintext_len);
     EVP_CIPHER_CTX_free(ctx);
     return plaintext;
 }
 
-std::string encryptFile(const std::string& filename, const AESKey& key) {
-    // Open input file
+/**
+ * Encrypts a file and saves it with a ".enc" extension.
+ *
+ * Reads the entire file into memory, encrypts it using AES-256-CBC,
+ * and writes the encrypted data to a new file.
+ *
+ * @param filename Path to the input file
+ * @param key The encryption key
+ * @return Path to the encrypted file
+ * @throws std::runtime_error on file I/O or encryption errors
+ */
+std::string encrypt(const std::string& filename, const AESKey& key) {
+    // Open input file in binary mode
     std::ifstream inputFile(filename, std::ios::binary);
     if (!inputFile) {
-        throw std::runtime_error("Failed to open file for encryption: " + filename);
+        throw std::runtime_error("Failed to open file for encryption");
     }
 
-    // Read file contents
-    std::vector<unsigned char> data(
-        (std::istreambuf_iterator<char>(inputFile)),
-        std::istreambuf_iterator<char>()
-    );
+    // Read entire file into memory
+    std::vector<unsigned char> data((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
     inputFile.close();
 
-    // Encrypt data
+    // Encrypt the data
     AESCrypt aesCrypt(key);
-    std::vector<unsigned char> encryptedData = aesCrypt.encrypt(data);
+    std::vector<unsigned char> encryptedData = aesCrypt.enc(data);
 
-    // Write IV + encrypted data to output file
-    std::string outputFilename = filename + ".enc";
-    std::ofstream outputFile(outputFilename, std::ios::binary);
-    if (!outputFile) {
-        throw std::runtime_error("Failed to create encrypted file: " + outputFilename);
-    }
-
-    // Write IV first (so it can be read during decryption)
-    outputFile.write(reinterpret_cast<const char*>(aesCrypt.getIV()), AES_BLOCK_SIZE);
-    outputFile.write(reinterpret_cast<const char*>(encryptedData.data()), 
-                     static_cast<std::streamsize>(encryptedData.size()));
+    // Write encrypted data to output file with .enc extension
+    std::ofstream outputFile(filename + ".enc", std::ios::binary);
+    outputFile.write(reinterpret_cast<const char*>(encryptedData.data()), encryptedData.size());
     outputFile.close();
 
-    return outputFilename;
+    return filename + ".enc"; // Return the name of the encrypted file
 }
 
-void decryptFile(const std::string& filename, const AESKey& key) {
-    // Open encrypted file
+
+/**
+ * Decrypts a file and saves it with the ".enc" extension removed.
+ *
+ * Reads the encrypted file into memory, decrypts it using AES-256-CBC,
+ * and writes the decrypted data to a new file.
+ *
+ * @param filename Path to the encrypted file (should end with .enc)
+ * @param key The decryption key
+ * @throws std::runtime_error on file I/O or decryption errors
+ */
+void decrypt(const std::string& filename, const AESKey& key) {
+    // Open input file in binary mode
     std::ifstream inputFile(filename, std::ios::binary);
     if (!inputFile) {
-        throw std::runtime_error("Failed to open file for decryption: " + filename);
+        throw std::runtime_error("Failed to open file for decryption");
     }
 
-    // Read IV from the beginning of the file
-    std::array<unsigned char, AES_BLOCK_SIZE> iv;
-    inputFile.read(reinterpret_cast<char*>(iv.data()), AES_BLOCK_SIZE);
-    if (!inputFile) {
-        throw std::runtime_error("Invalid encrypted file format: missing IV");
-    }
-
-    // Read encrypted data
-    std::vector<unsigned char> data(
-        (std::istreambuf_iterator<char>(inputFile)),
-        std::istreambuf_iterator<char>()
-    );
+    // Read entire file into memory
+    std::vector<unsigned char> data((std::istreambuf_iterator<char>(inputFile)), std::istreambuf_iterator<char>());
     inputFile.close();
 
-    // Decrypt data
+    // Decrypt the data
     AESCrypt aesCrypt(key);
-    aesCrypt.setIV(iv.data());
-    std::vector<unsigned char> decryptedData = aesCrypt.decrypt(data);
+    std::vector<unsigned char> decryptedData = aesCrypt.dec(data);
 
-    // Determine output filename (remove .enc extension)
-    std::string outputFilename;
-    const std::string encExtension = ".enc";
-    if (filename.size() >= encExtension.size() &&
-        filename.compare(filename.size() - encExtension.size(), encExtension.size(), encExtension) == 0) {
-        outputFilename = filename.substr(0, filename.size() - encExtension.size());
-    } else {
-        outputFilename = filename + ".decrypted";
-    }
-
-    // Write decrypted data
+    // Generate output filename by removing the last extension
+    std::string outputFilename = filename.substr(0, filename.find_last_of('.'));
+    // Write decrypted data to output file
     std::ofstream outputFile(outputFilename, std::ios::binary);
-    if (!outputFile) {
-        throw std::runtime_error("Failed to create decrypted file: " + outputFilename);
-    }
-    outputFile.write(reinterpret_cast<const char*>(decryptedData.data()), 
-                     static_cast<std::streamsize>(decryptedData.size()));
+    outputFile.write(reinterpret_cast<const char*>(decryptedData.data()), decryptedData.size());
     outputFile.close();
 }

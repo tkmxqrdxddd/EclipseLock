@@ -1,0 +1,15 @@
+BUILDDIR := build
+CMAKE := cmake
+
+.PHONY: all clean install
+
+all:
+	mkdir -p $(BUILDDIR)
+	cd $(BUILDDIR) && $(CMAKE) .. && $(CMAKE) --build .
+
+install:
+	mkdir -p $(BUILDDIR)
+	cd $(BUILDDIR) && $(CMAKE) .. && $(CMAKE) --build . --target install
+
+clean:
+	rm -rf $(BUILDDIR)

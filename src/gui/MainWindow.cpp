@@ -1,267 +1,263 @@
 #include "MainWindow.h"
-#include <wx/filename.h>
-#include <functional>
+#include <gtkmm/aboutdialog.h>
+#include <iostream>
 
-wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
-    EVT_BUTTON(wxID_ANY, MainWindow::OnEncrypt)
-    EVT_BUTTON(wxID_ANY, MainWindow::OnDecrypt)
-    EVT_FILEPICKER_CHANGED(wxID_ANY, MainWindow::OnFileChanged)
-    EVT_ENTER_WINDOW(MainWindow::OnButtonEnter)
-    EVT_LEAVE_WINDOW(MainWindow::OnButtonLeave)
-wxEND_EVENT_TABLE()
-
-// Color scheme - Modern dark theme
-static const wxColour COLOR_BG_PRIMARY(30, 30, 46);
-static const wxColour COLOR_BG_SECONDARY(45, 45, 65);
-static const wxColour COLOR_PRIMARY(78, 127, 213);
-static const wxColour COLOR_PRIMARY_HOVER(98, 147, 233);
-static const wxColour COLOR_SUCCESS(46, 178, 98);
-static const wxColour COLOR_SUCCESS_HOVER(66, 198, 118);
-static const wxColour COLOR_TEXT(230, 230, 230);
-static const wxColour COLOR_TEXT_MUTED(150, 150, 160);
-
+/**
+ * MainWindow Constructor
+ *
+ * Sets up the complete GUI interface including:
+ * - Window properties and size
+ * - File chooser for selecting files to encrypt/decrypt
+ * - Password entry field for the encryption key
+ * - Action buttons (Encrypt, Decrypt, About)
+ * - Progress bar and status label
+ * - Signal connections for all interactive elements
+ */
 MainWindow::MainWindow()
-    : wxFrame(nullptr, wxID_ANY, "EclipseLock - Secure File Encryption",
-              wxDefaultPosition, wxSize(550, 520))
 {
-    // Set window properties
-    SetBackgroundColour(COLOR_BG_PRIMARY);
-    
-    // Create main panel
-    mainPanel_ = new wxPanel(this);
-    mainPanel_->SetBackgroundColour(COLOR_BG_PRIMARY);
-    auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+    // Set window title and default dimensions
+    set_title("EclipseLock - File Encryption Tool");
+    set_default_size(600, 300);
+    set_border_width(10);
 
-    // Create header section
-    mainSizer->AddSpacer(30);
-    
-    // Title
-    titleLabel_ = new wxStaticText(mainPanel_, wxID_ANY, "EclipseLock");
-    titleLabel_->SetFont(wxFont(28, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
-    titleLabel_->SetForegroundColour(COLOR_TEXT);
-    mainSizer->Add(titleLabel_, 0, wxALIGN_CENTER_HORIZONTAL);
-    
-    // Subtitle
-    subtitleLabel_ = new wxStaticText(mainPanel_, wxID_ANY, "Secure File Encryption with AES-256");
-    subtitleLabel_->SetFont(wxFont(11, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    subtitleLabel_->SetForegroundColour(COLOR_TEXT_MUTED);
-    mainSizer->Add(subtitleLabel_, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP, 5);
-    
-    mainSizer->AddSpacer(30);
+    // Configure file chooser to open files
+    m_file_chooser.set_action(Gtk::FILE_CHOOSER_ACTION_OPEN);
+    // Connect file selection change event
+    m_file_chooser.signal_file_set().connect(
+        sigc::mem_fun(*this, &MainWindow::on_file_changed));
 
-    // Create file picker section
-    auto* fileLabel = new wxStaticText(mainPanel_, wxID_ANY, "Select File");
-    fileLabel->SetFont(wxFont(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
-    fileLabel->SetForegroundColour(COLOR_TEXT);
-    mainSizer->Add(fileLabel, 0, wxLEFT | wxBOTTOM, 15);
+    // Configure key entry as a password field (hide characters)
+    m_key_entry.set_visibility(false);
+    m_key_entry.set_placeholder_text("Enter encryption key...");
 
-    filePicker_ = new wxFilePickerCtrl(mainPanel_, wxID_ANY,
-        wxEmptyString, "Choose a file to encrypt/decrypt",
-        wxEmptyString, wxDefaultPosition, wxSize(-1, 45),
-        wxFLP_USE_TEXTCTRL | wxFLP_FILE_MUST_EXIST);
-    filePicker_->SetFont(wxFont(11, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    mainSizer->Add(filePicker_, 0, wxEXPAND | wxLEFT | wxRIGHT, 30);
+    // Configure buttons - initially disabled until valid inputs provided
+    m_encrypt_button.set_sensitive(false);
+    m_decrypt_button.set_sensitive(false);
+    // Connect button click events to handlers
+    m_encrypt_button.signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_encrypt_button_clicked));
+    m_decrypt_button.signal_signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_decrypt_button_clicked));
+    m_about_button.signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_about_clicked));
 
-    mainSizer->AddSpacer(20);
+    // Configure progress bar to show text and start at 0%
+    m_progress_bar.set_fraction(0.0);
+    m_progress_bar.set_show_text(true);
 
-    // Create key input section
-    auto* keyLabel = new wxStaticText(mainPanel_, wxID_ANY, "Encryption Key");
-    keyLabel->SetFont(wxFont(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
-    keyLabel->SetForegroundColour(COLOR_TEXT);
-    mainSizer->Add(keyLabel, 0, wxLEFT | wxBOTTOM, 15);
+    // Configure status label with italic markup
+    m_status_label.set_markup("<i>Ready</i>");
+    m_status_label.set_justify(Gtk::JUSTIFY_CENTER);
 
-    keyInput_ = new wxTextCtrl(mainPanel_, wxID_ANY, wxEmptyString,
-        wxDefaultPosition, wxSize(-1, 45), wxTE_PASSWORD);
-    keyInput_->SetFont(wxFont(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    mainSizer->Add(keyInput_, 0, wxEXPAND | wxLEFT | wxRIGHT, 30);
+    // Build the interface - assemble file selection row
+    m_file_box.append(m_file_label);
+    m_file_box.append(m_file_chooser);
+    m_file_box.set_spacing(10);
 
-    // Key strength hint
-    auto* keyHint = new wxStaticText(mainPanel_, wxID_ANY,
-        "Use a strong key (minimum 8 characters recommended)");
-    keyHint->SetFont(wxFont(10, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    keyHint->SetForegroundColour(COLOR_TEXT_MUTED);
-    mainSizer->Add(keyHint, 0, wxLEFT | wxTOP, 35);
-    
-    mainSizer->AddSpacer(30);
+    // Assemble key input row
+    m_key_box.append(m_key_label);
+    m_key_box.append(m_key_entry);
+    m_key_box.set_spacing(10);
 
-    // Create button section
-    auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-    
-    // Encrypt button
-    encryptButton_ = new wxButton(mainPanel_, wxID_ANY, "Encrypt",
-                                   wxDefaultPosition, wxSize(150, 45));
-    encryptButton_->SetFont(wxFont(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    encryptButton_->SetBackgroundColour(COLOR_PRIMARY);
-    encryptButton_->SetForegroundColour(*wxWHITE);
-    encryptButton_->Bind(wxEVT_ENTER_WINDOW, &MainWindow::OnButtonEnter, this);
-    encryptButton_->Bind(wxEVT_LEAVE_WINDOW, &MainWindow::OnButtonLeave, this);
-    
-    // Decrypt button
-    decryptButton_ = new wxButton(mainPanel_, wxID_ANY, "Decrypt",
-                                   wxDefaultPosition, wxSize(150, 45));
-    decryptButton_->SetFont(wxFont(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    decryptButton_->SetBackgroundColour(COLOR_SUCCESS);
-    decryptButton_->SetForegroundColour(*wxWHITE);
-    decryptButton_->Bind(wxEVT_ENTER_WINDOW, &MainWindow::OnButtonEnter, this);
-    decryptButton_->Bind(wxEVT_LEAVE_WINDOW, &MainWindow::OnButtonLeave, this);
-    
-    buttonSizer->Add(encryptButton_, 1, wxLEFT | wxRIGHT, 25);
-    buttonSizer->Add(decryptButton_, 1, wxLEFT | wxRIGHT, 25);
-    
-    mainSizer->Add(buttonSizer, 0, wxEXPAND);
-    
-    mainSizer->AddSpacer(30);
+    // Assemble button row
+    m_button_box.append(m_encrypt_button);
+    m_button_box.append(m_decrypt_button);
+    m_button_box.append(m_about_button);
+    m_button_box.set_spacing(10);
+    m_button_box.set_halign(Gtk::ALIGN_CENTER);
 
-    // Create status section
-    progressGauge_ = new wxGauge(mainPanel_, wxID_ANY, 100,
-                                  wxDefaultPosition, wxSize(-1, 10),
-                                  wxGA_HORIZONTAL | wxGA_SMOOTH);
-    progressGauge_->SetValue(0);
-    mainSizer->Add(progressGauge_, 0, wxEXPAND | wxLEFT | wxRIGHT, 50);
-    
-    mainSizer->AddSpacer(15);
-    
-    // Status text
-    statusText_ = new wxStaticText(mainPanel_, wxID_ANY, "Ready");
-    statusText_->SetFont(wxFont(11, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    statusText_->SetForegroundColour(COLOR_TEXT_MUTED);
-    mainSizer->Add(statusText_, 0, wxALL | wxALIGN_CENTER, 10);
-    
-    mainSizer->AddSpacer(20);
+    // Assemble main vertical layout
+    m_main_box.append(m_file_box);
+    m_main_box.append(m_key_box);
+    m_main_box.append(m_button_box);
+    m_main_box.append(m_progress_bar);
+    m_main_box.append(m_status_label);
+    m_main_box.set_spacing(10);
 
-    mainPanel_->SetSizer(mainSizer);
-    
-    // Center on screen
-    Centre(wxBOTH);
-    SetMinSize(wxSize(450, 450));
-}
+    // Set the main box as the window's child widget
+    set_child(m_main_box);
 
-void MainWindow::SetupStyling() {
-    // Additional styling can be added here if needed
-}
-
-void MainWindow::OnEncrypt(wxCommandEvent& WXUNUSED(evt)) {
-    RunOperation("Encrypting", [this]() {
-        wxString path = filePicker_->GetPath();
-        wxString key = keyInput_->GetValue();
-
-        AESKey aesKey(key.ToStdString());
-        std::string resultPath = encryptFile(path.ToStdString(), aesKey);
-
-        UpdateStatus("Encrypted: " + wxString(resultPath));
+    // Connect key release event to validate inputs dynamically
+    // Enable/disable buttons based on whether both file and key are provided
+    m_key_entry.signal_changed().connect([this]() {
+        if (!m_file_chooser.get_filename().empty() && !m_key_entry.get_text().empty()) {
+            m_encrypt_button.set_sensitive(true);
+            m_decrypt_button.set_sensitive(true);
+        } else {
+            m_encrypt_button.set_sensitive(false);
+            m_decrypt_button.set_sensitive(false);
+        }
     });
 }
 
-void MainWindow::OnDecrypt(wxCommandEvent& WXUNUSED(evt)) {
-    RunOperation("Decrypting", [this]() {
-        wxString path = filePicker_->GetPath();
-        wxString key = keyInput_->GetValue();
-
-        AESKey aesKey(key.ToStdString());
-        decryptFile(path.ToStdString(), aesKey);
-
-        UpdateStatus("Decryption complete!");
-    });
+/**
+ * MainWindow Destructor
+ */
+MainWindow::~MainWindow()
+{
 }
 
-void MainWindow::OnButtonEnter(wxMouseEvent& evt) {
-    wxButton* btn = dynamic_cast<wxButton*>(evt.GetEventObject());
-    if (btn) {
-        if (btn == encryptButton_) {
-            btn->SetBackgroundColour(COLOR_PRIMARY_HOVER);
-        } else if (btn == decryptButton_) {
-            btn->SetBackgroundColour(COLOR_SUCCESS_HOVER);
-        }
-        btn->Refresh();
-    }
-    evt.Skip();
-}
-
-void MainWindow::OnButtonLeave(wxMouseEvent& evt) {
-    wxButton* btn = dynamic_cast<wxButton*>(evt.GetEventObject());
-    if (btn) {
-        if (btn == encryptButton_) {
-            btn->SetBackgroundColour(COLOR_PRIMARY);
-        } else if (btn == decryptButton_) {
-            btn->SetBackgroundColour(COLOR_SUCCESS);
-        }
-        btn->Refresh();
-    }
-    evt.Skip();
-}
-
-bool MainWindow::ValidateInputs() {
-    if (keyInput_->GetValue().IsEmpty()) {
-        wxMessageBox("Please enter an encryption key.", "Input Error", 
-                     wxICON_ERROR | wxOK | wxCENTER);
-        return false;
-    }
-    
-    if (keyInput_->GetValue().Length() < 8) {
-        int result = wxMessageBox(
-            "Your key is less than 8 characters. This is not secure.\n"
-            "Do you want to continue anyway?",
-            "Weak Key Warning",
-            wxYES_NO | wxICON_WARNING | wxCENTER
-        );
-        if (result != wxYES) {
-            return false;
-        }
-    }
-    
-    if (filePicker_->GetPath().IsEmpty()) {
-        wxMessageBox("Please select a file.", "Input Error", 
-                     wxICON_ERROR | wxOK | wxCENTER);
-        return false;
-    }
-    
-    wxString path = filePicker_->GetPath();
-    if (!wxFileExists(path)) {
-        wxMessageBox("The selected file does not exist.", "File Error", 
-                     wxICON_ERROR | wxOK | wxCENTER);
-        return false;
-    }
-    
-    return true;
-}
-
-void MainWindow::UpdateStatus(const wxString& message, bool isError) {
-    statusText_->SetLabel(message);
-    statusText_->SetForegroundColour(isError ? wxColour(220, 80, 80) : COLOR_TEXT_MUTED);
-    statusText_->Refresh();
-}
-
-void MainWindow::OnFileChanged(wxFileDirPickerEvent& WXUNUSED(evt)) {
-    wxString path = filePicker_->GetPath();
-    
-    // Check if it's an encrypted file
-    if (path.EndsWith(".enc")) {
-        UpdateStatus("Encrypted file ready for decryption");
-    } else {
-        UpdateStatus("File ready for encryption");
-    }
-}
-
-void MainWindow::RunOperation(const wxString& operationName,
-                               const std::function<void()>& operation) {
-    if (!ValidateInputs()) {
-        return;
-    }
+/**
+ * Handles encryption button click.
+ *
+ * Validates inputs, performs file encryption using the AESCrypt library,
+ * updates the progress bar, and displays success/error messages.
+ */
+void MainWindow::on_encrypt_button_clicked()
+{
+    if (!validate_inputs()) return;
 
     try {
-        UpdateStatus(operationName + "...");
-        progressGauge_->SetValue(0);
-        Refresh();
-        Update();
+        Glib::ustring filename = m_file_chooser.get_filename();
+        Glib::ustring key = m_key_entry.get_text();
 
-        operation();
+        update_status("Encrypting...");
+        m_progress_bar.set_fraction(0.1);
 
-        progressGauge_->SetValue(100);
-        UpdateStatus(operationName + " complete!");
+        // Use existing encryption code from AESCrypt
+        AESKey aesKey(key.raw());
+        std::string encrypted_file = encrypt(filename.raw(), aesKey);
+
+        m_progress_bar.set_fraction(1.0);
+        update_status("Encryption complete! Encrypted file: " + Glib::ustring(encrypted_file));
+
+        // Reset progress bar after a short delay
+        Glib::timeout_add_seconds(2, [this]() {
+            m_progress_bar.set_fraction(0.0);
+            return false; // Remove the timeout
+        });
+
     }
     catch (const std::exception& e) {
-        wxMessageBox(e.what(), "Error", wxICON_ERROR | wxOK | wxCENTER);
-        UpdateStatus(operationName + " failed!", true);
-        progressGauge_->SetValue(0);
+        // Display error dialog on encryption failure
+        Gtk::MessageDialog dialog(*this, "Encryption Error", false, Gtk::MESSAGE_ERROR);
+        dialog.set_secondary_text(e.what());
+        dialog.run();
+        update_status("Encryption failed!");
     }
 }
+
+/**
+ * Handles decryption button click.
+ *
+ * Validates inputs, performs file decryption using the AESCrypt library,
+ * updates the progress bar, and displays success/error messages.
+ */
+void MainWindow::on_decrypt_button_clicked()
+{
+    if (!validate_inputs()) return;
+
+    try {
+        Glib::ustring filename = m_file_chooser.get_filename();
+        Glib::ustring key = m_key_entry.get_text();
+
+        update_status("Decrypting...");
+        m_progress_bar.set_fraction(0.1);
+
+        // Use existing decryption code from AESCrypt
+        AESKey aesKey(key.raw());
+        decrypt(filename.raw(), aesKey);
+
+        m_progress_bar.set_fraction(1.0);
+        update_status("Decryption complete!");
+
+        // Reset progress bar after a short delay
+        Glib::timeout_add_seconds(2, [this]() {
+            m_progress_bar.set_fraction(0.0);
+            return false; // Remove the timeout
+        });
+
+    }
+    catch (const std::exception& e) {
+        // Display error dialog on decryption failure
+        Gtk::MessageDialog dialog(*this, "Decryption Error", false, Gtk::MESSAGE_ERROR);
+        dialog.set_secondary_text(e.what());
+        dialog.run();
+        update_status("Decryption failed!");
+    }
+}
+
+/**
+ * Handles about button click.
+ *
+ * Displays an about dialog with application information including
+ * version, copyright, license, and author details.
+ */
+void MainWindow::on_about_clicked()
+{
+    Gtk::AboutDialog dialog;
+    dialog.set_transient_for(*this);
+    dialog.set_program_name("EclipseLock");
+    dialog.set_version("2.0.0");
+    dialog.set_copyright("© 2025 EclipseLock Team");
+    dialog.set_comments("A modern file encryption tool with GTK interface");
+    dialog.set_license("MIT License");
+    dialog.set_website("https://github.com/tkmxqrdxddd/eclipselock");
+    dialog.set_website_label("View on GitHub");
+
+    std::vector<Glib::ustring> authors = {"tkmxqrdxddd"};
+    dialog.set_authors(authors);
+
+    dialog.run();
+}
+
+/**
+ * Handles file selection changes.
+ *
+ * Updates the status label with the selected filename and enables
+ * action buttons if a key is also provided.
+ */
+void MainWindow::on_file_changed()
+{
+    Glib::ustring filename = m_file_chooser.get_filename();
+    if (!filename.empty()) {
+        update_status("Selected file: " + Glib::ustring(filename));
+
+        // Enable buttons if key is also provided
+        if (!m_key_entry.get_text().empty()) {
+            m_encrypt_button.set_sensitive(true);
+            m_decrypt_button.set_sensitive(true);
+        }
+    } else {
+        update_status("Ready");
+        m_encrypt_button.set_sensitive(false);
+        m_decrypt_button.set_sensitive(false);
+    }
+}
+
+/**
+ * Updates the status label with a formatted message.
+ *
+ * @param message The status message to display.
+ */
+void MainWindow::update_status(const Glib::ustring& message)
+{
+    m_status_label.set_markup("<i>" + message + "</i>");
+}
+
+/**
+ * Validates user inputs before encryption/decryption operations.
+ *
+ * @return true if both file and key are provided, false otherwise.
+ *
+ * Displays warning dialogs for missing inputs to guide the user.
+ */
+bool MainWindow::validate_inputs()
+{
+    if (m_key_entry.get_text().empty()) {
+        Gtk::MessageDialog dialog(*this, "Input Error", false, Gtk::MESSAGE_WARNING);
+        dialog.set_secondary_text("Please enter an encryption key.");
+        dialog.run();
+        return false;
+    }
+
+    if (m_file_chooser.get_filename().empty()) {
+        Gtk::MessageDialog dialog(*this, "Input Error", false, Gtk::MESSAGE_WARNING);
+        dialog.set_secondary_text("Please select a file.");
+        dialog.run();
+        return false;
+    }
+
+    return true;
+}
+  

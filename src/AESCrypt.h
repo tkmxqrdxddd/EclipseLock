@@ -2,97 +2,112 @@
 
 #include <vector>
 #include <string>
-#include <array>
-#include <cstdint>
 #include <openssl/aes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * @brief AES-256 encryption key class
- * 
- * Derives a 256-bit key from a password string using SHA-256 hashing
+ * @class AESKey
+ * @brief Manages AES encryption keys with secure initialization.
+ *
+ * Stores a 256-bit (32-byte) key for AES-256 encryption.
+ * The key is zero-initialized and populated from a string.
  */
 class AESKey {
 public:
-    explicit AESKey(const std::string& password);
-    
-    const std::array<unsigned char, 32>& getKey() const { return key_; }
-
-private:
-    std::array<unsigned char, 32> key_;
+    /**
+     * @brief Constructs an AESKey from a string.
+     * @param key_str The encryption key as a string.
+     *
+     * The key is zero-padded or truncated to fit 32 bytes.
+     */
+    AESKey(const std::string& key_str);
+    unsigned char key[32];  ///< The 256-bit encryption key
 };
 
 /**
- * @brief AES-256-CBC encryption/decryption class
- * 
- * Handles encryption and decryption of data using AES-256 in CBC mode.
- * Stores and manages the initialization vector (IV) for cryptographic operations.
+ * @class AESCrypt
+ * @brief Handles AES-256-CBC encryption and decryption operations.
+ *
+ * Uses OpenSSL's EVP API for cryptographic operations with PKCS7 padding.
+ * Each instance manages its own initialization vector (IV) for secure encryption.
  */
 class AESCrypt {
 public:
-    explicit AESCrypt(const AESKey& key);
-    
     /**
-     * @brief Set a new encryption key
+     * @brief Constructs an AESCrypt instance with the given key.
+     * @param key The AESKey to use for encryption/decryption.
+     *
+     * Initializes the IV to zero. Use setIV() to set a random IV before encryption.
+     */
+    AESCrypt(const AESKey& key);
+
+    /**
+     * @brief Sets the encryption key.
+     * @param key The AESKey to use.
      */
     void setKey(const AESKey& key);
-    
+
     /**
-     * @brief Generate a random IV
+     * @brief Sets the initialization vector (IV).
+     * @param iv Pointer to a 16-byte IV array.
+     *
+     * The IV must be unique for each encryption operation with the same key.
      */
-    void generateIV();
-    
+    void setIV(unsigned char* iv);
+
     /**
-     * @brief Set the IV from external data
-     * @param iv Pointer to AES_BLOCK_SIZE bytes
+     * @brief Gets the current initialization vector.
+     * @return Pointer to the 16-byte IV array.
      */
-    void setIV(const unsigned char* iv);
-    
+    unsigned char* getIV();
+
     /**
-     * @brief Get the current IV
-     * @return Pointer to the IV data
+     * @brief Encrypts data using AES-256-CBC.
+     * @param data The plaintext data to encrypt.
+     * @return std::vector<unsigned char> The encrypted ciphertext.
+     * @throws std::runtime_error If encryption fails.
      */
-    const unsigned char* getIV() const;
-    
+    std::vector<unsigned char> enc(const std::vector<unsigned char>& data);
+
     /**
-     * @brief Encrypt data
-     * @param data Plain data to encrypt
-     * @return Encrypted ciphertext
+     * @brief Decrypts data using AES-256-CBC.
+     * @param data The ciphertext data to decrypt.
+     * @return std::vector<unsigned char> The decrypted plaintext.
+     * @throws std::runtime_error If decryption fails.
      */
-    std::vector<unsigned char> encrypt(const std::vector<unsigned char>& data);
-    
-    /**
-     * @brief Decrypt data
-     * @param data Encrypted ciphertext to decrypt
-     * @return Decrypted plain data
-     */
-    std::vector<unsigned char> decrypt(const std::vector<unsigned char>& data);
+    std::vector<unsigned char> dec(const std::vector<unsigned char>& data);
 
 private:
-    AESKey key_;
-    std::array<unsigned char, AES_BLOCK_SIZE> iv_;
+    AESKey key;                    ///< The encryption key
+    unsigned char iv[AES_BLOCK_SIZE];  ///< The initialization vector (16 bytes)
 };
 
 /**
- * @brief Encrypt a file using AES-256-CBC
- * 
- * Reads the input file, encrypts its contents, and writes to a .enc file.
- * The IV is prepended to the encrypted file for later decryption.
- * 
- * @param filename Path to the file to encrypt
- * @param key Encryption key
- * @return Path to the encrypted file
- * @throws std::runtime_error on file or encryption errors
+ * @brief Encrypts a file using AES-256-CBC.
+ * @param filename Path to the file to encrypt.
+ * @param key The encryption key.
+ * @return std::string Path to the encrypted file (original filename + ".enc").
+ * @throws std::runtime_error If file operations or encryption fail.
+ *
+ * Reads the entire file into memory, encrypts it, and writes to a new file
+ * with the ".enc" extension appended.
  */
-std::string encryptFile(const std::string& filename, const AESKey& key);
+std::string encrypt(const std::string& filename, const AESKey& key);
 
 /**
- * @brief Decrypt a file using AES-256-CBC
- * 
- * Reads the encrypted file (including IV from the beginning),
- * decrypts its contents, and writes to the original filename.
- * 
- * @param filename Path to the .enc file to decrypt
- * @param key Decryption key
- * @throws std::runtime_error on file or decryption errors
+ * @brief Decrypts a file using AES-256-CBC.
+ * @param filename Path to the encrypted file.
+ * @param key The decryption key.
+ * @throws std::runtime_error If file operations or decryption fail.
+ *
+ * Reads the encrypted file, decrypts it, and writes to a new file
+ * with the ".enc" extension removed.
  */
-void decryptFile(const std::string& filename, const AESKey& key);
+void decrypt(const std::string& filename, const AESKey& key);
+
+#ifdef __cplusplus
+}
+#endif 

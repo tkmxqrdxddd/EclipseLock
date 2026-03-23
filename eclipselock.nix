@@ -4,27 +4,50 @@ let
   eclipselock = pkgs.stdenv.mkDerivation {
     name = "eclipselock";
     src = ./.;
-    
     buildInputs = with pkgs; [
-      cmake
       makeWrapper
       openssl
-      wxGTK32
       gtk3
-      libX11
-      libXrandr
-      libXinerama
+      gtkmm30
+      glib
+      glibmm
+      pkgconfig
+      cmake
     ];
 
-    cmakeFlags = [
-      "-DCMAKE_BUILD_TYPE=Release"
+    nativeBuildInputs = with pkgs; [
+      cmake
+      pkgconfig
     ];
 
-    postInstall = ''
-      wrapProgram $out/bin/eclipselock \
-        --prefix "PATH" : "${pkgs.lib.makeBinPath [ pkgs.openssl ]}" \
-        --set "LD_LIBRARY_PATH" "${pkgs.lib.makeLibraryPath [ pkgs.wxGTK32 pkgs.gtk3 pkgs.libX11 ]}"
+    buildPhase = ''
+      mkdir -p build
+      cd build
+      cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=$out \
+        -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=TRUE \
+        -DCMAKE_PREFIX_PATH="${pkgs.gtkmm30}:${pkgs.gtk3}:${pkgs.glibmm}:${pkgs.glib}:${pkgs.openssl}"
+      
+      make -j$(nproc)
     '';
+
+    installPhase = ''
+      cd build
+      make install
+      
+      # Wrap the program to ensure proper environment
+      wrapProgram $out/bin/eclipselock \
+        --prefix "PATH" : "${pkgs.makeWrapper}/bin:$PATH" \
+        --prefix "LD_LIBRARY_PATH" : "${pkgs.gtk3.out}/lib:${pkgs.gtkmm30.out}/lib:${pkgs.glib.out}/lib:${pkgs.openssl.out}/lib"
+    '';
+    
+    # Ensure proper runtime dependencies
+    runtimeDependencies = with pkgs; [
+      gtk3
+      glib
+      openssl
+    ];
   };
 in
   eclipselock
