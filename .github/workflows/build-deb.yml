@@ -40,17 +40,20 @@ jobs:
       
       - name: Prepare Debian package structure
         run: |
+          PKG_VERSION="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}"
+          PKG_VERSION="${PKG_VERSION#v}"
+
           mkdir -p debian-package
           mkdir -p debian-package/usr/bin
           mkdir -p debian-package/usr/share/applications
-          mkdir -p debian-package/usr/share/icons/hicolor/128x128/apps
           mkdir -p debian-package/DEBIAN
           
-          cp build/eclipselock debian-package/usr/bin/
+          [ -f build/eclipselock ] && cp build/eclipselock debian-package/usr/bin/ || \
+            echo "No GUI binary built (GTKmm not available)"
           
           cat > debian-package/DEBIAN/control << EOF
           Package: eclipselock
-          Version: ${GITHUB_REF#refs/tags/v}
+          Version: ${PKG_VERSION}
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -78,8 +81,10 @@ jobs:
       
       - name: Build .deb package
         run: |
+          PKG_VERSION="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}"
+          PKG_VERSION="${PKG_VERSION#v}"
           cd debian-package
-          dpkg-deb --build . ../eclipselock_${GITHUB_REF#refs/tags/v}_amd64.deb
+          dpkg-deb --build . "../eclipselock_${PKG_VERSION}_amd64.deb"
       
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4

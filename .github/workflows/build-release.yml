@@ -59,24 +59,51 @@ jobs:
 
   build-windows:
     needs: code-safety
-    runs-on: windows-latest
-    if: false
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:39
     continue-on-error: true
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install MinGW toolchain
+        run: |
+          dnf -y install \
+            mingw64-gcc-c++ \
+            mingw64-openssl \
+            cmake \
+            make \
+            git
+          dnf clean all
+
+      - name: Build tests (CLI only — no GTKmm for MinGW)
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DBUILD_TESTS=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
+            -DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32 \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY
+          make -j$(nproc) eclipselock_tests
+
       - name: Note
         run: |
-          echo "Windows build is currently unavailable."
-          echo "EclipseLock v2.x uses GTKmm 3.0 which is primarily available on Linux."
-          echo "For Windows support, please use EclipseLock v1.x or build from source with MSYS2."
+          echo "---"
+          echo "Windows GUI build (GTKmm) is not available via MinGW cross-compilation."
+          echo "For native Windows builds, use MSYS2 or WSL."
 
   build-deb:
     needs: code-safety
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -100,7 +127,7 @@ jobs:
             devscripts \
             build-essential
 
-      - name: Create build directory
+      - name: Build binary
         run: |
           mkdir -p build
           cd build
@@ -109,17 +136,19 @@ jobs:
 
       - name: Prepare Debian package structure
         run: |
+          PKG_VERSION="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}"
+          PKG_VERSION="${PKG_VERSION#v}"
+
           mkdir -p debian-package
           mkdir -p debian-package/usr/bin
           mkdir -p debian-package/usr/share/applications
-          mkdir -p debian-package/usr/share/icons/hicolor/128x128/apps
           mkdir -p debian-package/DEBIAN
           
           cp build/eclipselock debian-package/usr/bin/
           
           cat > debian-package/DEBIAN/control << EOF
           Package: eclipselock
-          Version: ${GITHUB_REF#refs/tags/v}
+          Version: ${PKG_VERSION}
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -147,8 +176,10 @@ jobs:
 
       - name: Build .deb package
         run: |
+          PKG_VERSION="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}"
+          PKG_VERSION="${PKG_VERSION#v}"
           cd debian-package
-          dpkg-deb --build . ../eclipselock_${GITHUB_REF#refs/tags/v}_amd64.deb
+          dpkg-deb --build . "../eclipselock_${PKG_VERSION}_amd64.deb"
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
