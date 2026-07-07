@@ -2,6 +2,7 @@
 #include <catch2/catch_approx.hpp>
 #include "../src/AESCrypt.h"
 #include <openssl/rand.h>
+#include <openssl/aes.h>
 #include <fstream>
 
 TEST_CASE("AESKey derivation", "[crypto][key]") {
