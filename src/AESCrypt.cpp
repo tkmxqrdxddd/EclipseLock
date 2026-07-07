@@ -48,12 +48,12 @@ std::vector<unsigned char> AESCrypt::enc(const std::vector<unsigned char>& data,
         throw std::runtime_error("Failed to create cipher context");
     }
 
-    std::vector<unsigned char> ciphertext(data.size() + EVP_CIPHER_CTX_block_size(ctx.get()));
-    int len;
-
     if (!EVP_EncryptInit_ex(ctx.get(), EVP_aes_256_cbc(), NULL, m_key->getKey(), iv)) {
         throw std::runtime_error("Encryption initialization failed");
     }
+
+    std::vector<unsigned char> ciphertext(data.size() + EVP_CIPHER_CTX_block_size(ctx.get()));
+    int len;
 
     if (!EVP_EncryptUpdate(ctx.get(), ciphertext.data(), &len, data.data(), data.size())) {
         throw std::runtime_error("Encryption update failed");
