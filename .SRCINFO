@@ -1,17 +1,18 @@
 pkgbase = eclipselock
-	pkgdesc = A command-line and GUI tool for file encryption using AES-256-CBC
+	pkgdesc = A command-line and GUI file encryption tool using AES-256-CBC with GTK interface
 	pkgver = 2.3.5
 	pkgrel = 1
-	url = https://github.com/tkmxqrdxddd/eclipselock
+	url = https://github.com/tkmxqrdxddd/EclipseLock
 	arch = x86_64
 	license = MIT
 	makedepends = cmake
 	makedepends = gcc
 	makedepends = make
+	makedepends = pkg-config
 	depends = openssl
 	depends = gtkmm3
 	depends = gtk3
-	source = eclipselock-2.3.5.tar.gz
+	source = eclipselock-2.3.5.tar.gz::https://github.com/tkmxqrdxddd/EclipseLock/archive/v2.3.5.tar.gz
 	sha256sums = SKIP
 
 pkgname = eclipselock

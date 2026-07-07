@@ -2,33 +2,33 @@
 pkgname=eclipselock
 pkgver=2.3.5
 pkgrel=1
-pkgdesc="A command-line and GUI tool for file encryption using AES-256-CBC"
+pkgdesc="A command-line and GUI file encryption tool using AES-256-CBC with GTK interface"
 arch=('x86_64')
-url="https://github.com/tkmxqrdxddd/eclipselock"
+url="https://github.com/tkmxqrdxddd/EclipseLock"
 license=('MIT')
 depends=('openssl' 'gtkmm3' 'gtk3')
-makedepends=('cmake' 'gcc' 'make')
-source=("$pkgname-$pkgver.tar.gz")
+makedepends=('cmake' 'gcc' 'make' 'pkg-config')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/tkmxqrdxddd/EclipseLock/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
-    cd "$pkgname-$pkgver"
+    cd "EclipseLock-$pkgver"
     mkdir -p build && cd build
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
     make
 }
 
 package() {
-    cd "$pkgname-$pkgver/build"
+    cd "EclipseLock-$pkgver/build"
     make DESTDIR="$pkgdir" install
     install -Dm644 "../LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
-# Windows cross-compilation package (mingw-w64)
+# Windows cross-compilation (mingw-w64)
 pkgname_windows=eclipselock-windows
 
 build_windows() {
-    cd "$pkgname-$pkgver"
+    cd "EclipseLock-$pkgver"
     mkdir -p build-windows && cd build-windows
     x86_64-w64-mingw32-cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
@@ -40,7 +40,7 @@ build_windows() {
 }
 
 package_windows() {
-    cd "$pkgname-$pkgver/build-windows"
+    cd "EclipseLock-$pkgver/build-windows"
     install -Dm755 "eclipselock.exe" "$pkgdir/usr/bin/eclipselock.exe"
     install -Dm644 "../LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
