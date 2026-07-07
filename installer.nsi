@@ -6,7 +6,7 @@
 ;Configuration
 
 !define APP_NAME "EclipseLock"
-!define APP_VERSION "1.1.0"
+!define APP_VERSION "2.3.5"
 !define APP_PUBLISHER "Jan Fidra"
 !define APP_URL "https://github.com/tkmxqrdxddd/eclipselock"
 !define APP_EXE "eclipselock.exe"

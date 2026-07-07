@@ -1,6 +1,6 @@
 # Maintainer: Jan Fidra <tkmxqrd@gmail.com>
 pkgname=eclipselock
-pkgver=1.1.0
+pkgver=2.3.5
 pkgrel=1
 pkgdesc="A command-line and GUI tool for file encryption using AES-256-CBC"
 arch=('x86_64')
@@ -9,7 +9,7 @@ license=('MIT')
 depends=('openssl' 'gtkmm3' 'gtk3')
 makedepends=('cmake' 'gcc' 'make')
 source=("$pkgname-$pkgver.tar.gz")
-sha256sums=('e1528d9525809afea6e9ae21e6c36a694d47f9b47090b07e73dfb1a9e53af166')
+sha256sums=('SKIP')
 
 build() {
     cd "$pkgname-$pkgver"

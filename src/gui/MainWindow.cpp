@@ -130,7 +130,7 @@ void MainWindow::on_about_clicked()
     Gtk::AboutDialog dialog;
     dialog.set_transient_for(*this);
     dialog.set_program_name("EclipseLock");
-    dialog.set_version("2.0.0");
+    dialog.set_version("2.3.5");
     dialog.set_copyright("© 2025 EclipseLock Team");
     dialog.set_comments("A modern file encryption tool with GTK interface");
     dialog.set_license("MIT License");
