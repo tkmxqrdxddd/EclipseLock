@@ -4,10 +4,15 @@ project(eclipselock)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find required packages
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTKMM REQUIRED gtkmm-3.0)
+# Find packages
+find_package(PkgConfig QUIET)
 find_package(OpenSSL REQUIRED)
+
+# Optional GTKmm for GUI
+find_package(PkgConfig)
+if(PkgConfig_FOUND)
+    pkg_check_modules(GTKMM gtkmm-3.0)
+endif()
 
 # Source files
 set(SOURCES
@@ -22,38 +27,35 @@ set(HEADERS
     src/AESCrypt.h
 )
 
-# Create executable
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+# Create executable (GUI only if GTKmm is available)
+if(GTKMM_FOUND)
+    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-# Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${OPENSSL_INCLUDE_DIR}
-    ${GTKMM_INCLUDE_DIRS}
-)
+    target_include_directories(${PROJECT_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${OPENSSL_INCLUDE_DIR}
+        ${GTKMM_INCLUDE_DIRS}
+    )
 
-# Link libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${GTKMM_LIBRARIES}
-    OpenSSL::SSL
-    OpenSSL::Crypto
-)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        ${GTKMM_LIBRARIES}
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ${GTKMM_LDFLAGS}
+    )
 
-# Add compile definitions if needed
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
-)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
+    )
 
-# Set output directory
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Install target
-install(TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION bin
-)
-
-# Add pkg-config include directories
-target_link_libraries(${PROJECT_NAME} PRIVATE ${GTKMM_LDFLAGS})
+    install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+    )
+else()
+    message(STATUS "gtkmm-3.0 not found — GUI binary will not be built")
+endif()
 
 # Testing
 option(BUILD_TESTS "Build unit tests" OFF)
@@ -85,6 +87,5 @@ if(BUILD_TESTS)
         OpenSSL::Crypto
     )
 
-    include(CTest)
     add_test(NAME eclipselock_tests COMMAND eclipselock_tests)
 endif()

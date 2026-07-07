@@ -4,6 +4,18 @@
 #include <openssl/rand.h>
 #include <openssl/aes.h>
 #include <fstream>
+#include <cstdio>
+#include <unistd.h>
+
+static std::string make_temp_file() {
+    char name[] = "/tmp/eclipselock_test_XXXXXX";
+    int fd = mkstemp(name);
+    if (fd == -1) {
+        throw std::runtime_error("Failed to create temp file");
+    }
+    close(fd);
+    return name;
+}
 
 TEST_CASE("AESKey derivation", "[crypto][key]") {
     std::array<unsigned char, SALT_SIZE> salt{};
@@ -111,8 +123,8 @@ TEST_CASE("HMAC computation and verification", "[crypto][hmac]") {
 }
 
 TEST_CASE("File encrypt/decrypt roundtrip", "[crypto][file]") {
-    auto tmpfile = std::tmpnam(nullptr);
-    auto encfile = std::string(tmpfile) + ".enc";
+    auto tmpfile = make_temp_file();
+    auto encfile = tmpfile + ".enc";
     std::string password = "test_password";
 
     std::vector<unsigned char> original_data = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
@@ -141,12 +153,12 @@ TEST_CASE("File encrypt/decrypt roundtrip", "[crypto][file]") {
         REQUIRE_THROWS_AS(decrypt(encfile, "wrong_password"), std::runtime_error);
     }
 
-    std::remove(tmpfile);
+    std::remove(tmpfile.c_str());
     std::remove(encfile.c_str());
 }
 
 TEST_CASE("Malformed encrypted file detection", "[crypto][error]") {
-    auto tmpfile = std::tmpnam(nullptr);
+    auto tmpfile = make_temp_file();
 
     SECTION("File too small") {
         {
@@ -154,24 +166,27 @@ TEST_CASE("Malformed encrypted file detection", "[crypto][error]") {
             out << "too short";
         }
         REQUIRE_THROWS_AS(decrypt(tmpfile, "password"), std::runtime_error);
-        std::remove(tmpfile);
+        std::remove(tmpfile.c_str());
     }
 
     SECTION("Corrupted HMAC") {
-        auto encfile = std::string(tmpfile) + ".enc";
+        auto encfile = tmpfile + ".enc";
         {
             std::ofstream out(tmpfile, std::ios::binary);
             out.write("dummy", 5);
         }
         encrypt(tmpfile, "password");
 
-        std::fstream f(encfile, std::ios::binary | std::ios::in | std::ios::out);
-        f.seekp(-1, std::ios::end);
-        f.put(0xFF);
+        {
+            std::fstream f(encfile, std::ios::binary | std::ios::in | std::ios::out);
+            REQUIRE(f.is_open());
+            f.seekp(-1, std::ios::end);
+            f.put(0xFF);
+        }
 
         REQUIRE_THROWS_AS(decrypt(encfile, "password"), std::runtime_error);
 
-        std::remove(tmpfile);
+        std::remove(tmpfile.c_str());
         std::remove(encfile.c_str());
     }
 }
