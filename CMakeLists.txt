@@ -47,10 +47,44 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 # Set output directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Add install target
+# Install target
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
 )
 
 # Add pkg-config include directories
-target_link_libraries(${PROJECT_NAME} PRIVATE ${GTKMM_LDFLAGS}) 
+target_link_libraries(${PROJECT_NAME} PRIVATE ${GTKMM_LDFLAGS})
+
+# Testing
+option(BUILD_TESTS "Build unit tests" OFF)
+if(BUILD_TESTS)
+    enable_testing()
+
+    include(FetchContent)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.7.1
+    )
+    FetchContent_MakeAvailable(Catch2)
+
+    set(TEST_SOURCES
+        tests/test_aescrypt.cpp
+    )
+
+    add_executable(eclipselock_tests ${TEST_SOURCES} src/AESCrypt.cpp)
+
+    target_include_directories(eclipselock_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${OPENSSL_INCLUDE_DIR}
+    )
+
+    target_link_libraries(eclipselock_tests PRIVATE
+        Catch2::Catch2WithMain
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    include(CTest)
+    add_test(NAME eclipselock_tests COMMAND eclipselock_tests)
+endif()

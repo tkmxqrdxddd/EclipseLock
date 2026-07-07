@@ -1,6 +1,5 @@
 #include "MainWindow.h"
 #include <gtkmm/aboutdialog.h>
-#include <iostream>
 
 MainWindow::MainWindow()
 {
@@ -64,10 +63,6 @@ MainWindow::MainWindow()
             m_decrypt_button.set_sensitive(false);
         }
     });
-}
-
-MainWindow::~MainWindow()
-{
 }
 
 void MainWindow::on_encrypt_button_clicked()

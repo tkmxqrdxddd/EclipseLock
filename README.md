@@ -4,14 +4,13 @@ EclipseLock is a secure file encryption tool that uses AES-256-CBC encryption wi
 
 ## Features
 
-- **Modern Dark Theme GUI** with gradient backgrounds and styled buttons
 - **AES-256-CBC encryption/decryption** with OpenSSL EVP API
+- **PBKDF2 key derivation** with random salt and 100,000 iterations
+- **HMAC-SHA256 authentication** to detect tampering
 - **Secure random IV generation** for each encryption operation
 - **PKCS7 padding** for block alignment
-- **Dual interface**: Modern GUI and Command-line options
+- **Dual interface**: GTK GUI and Command-line interface
 - **Support for any file type** with original extension preservation
-- **Memory-safe implementation** using modern C++17
-- **Hover effects** on buttons for better UX
 - **Real-time status updates** with progress indication
 
 ## Prerequisites
@@ -20,7 +19,7 @@ EclipseLock is a secure file encryption tool that uses AES-256-CBC encryption wi
 - C++ compiler with C++17 support
 - CMake 3.15+
 - OpenSSL development libraries
-- wxWidgets 3.2+ (GTK3)
+- GTKmm 3.0 development libraries
 - GTK3 development libraries
 
 ### Installation Dependencies by Platform
@@ -28,19 +27,19 @@ EclipseLock is a secure file encryption tool that uses AES-256-CBC encryption wi
 #### Debian/Ubuntu
 
 ```bash
-sudo apt-get install libssl-dev libwxgtk3.2-dev libgtk-3-dev cmake g++
+sudo apt-get install libssl-dev libgtkmm-3.0-dev libgtk-3-dev cmake g++
 ```
 
 #### Arch Linux
 
 ```bash
-sudo pacman -S openssl wxgtk3.2 gtk3 cmake gcc make
+sudo pacman -S openssl gtkmm3 gtk3 cmake gcc make
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install openssl-devel wxGTK-devel gtk3-devel cmake gcc-c++ make
+sudo dnf install openssl-devel gtkmm30-devel gtk3-devel cmake gcc-c++ make
 ```
 
 #### Windows (Native Build)
@@ -49,10 +48,9 @@ sudo dnf install openssl-devel wxGTK-devel gtk3-devel cmake gcc-c++ make
 # Using vcpkg
 git clone https://github.com/Microsoft/vcpkg.git
 .\vcpkg\bootstrap-vcpkg.bat
-vcpkg install wxwidgets:x64-windows openssl:x64-windows
+vcpkg install openssl:x64-windows
 
-# Then build with CMake or use the PowerShell script
-.\build-windows-native.ps1 -InstallDeps
+# Then build with CMake
 .\build-windows-native.ps1
 ```
 
@@ -178,11 +176,11 @@ Launch the GUI:
 ./eclipselock
 ```
 
-The modern dark-themed GUI provides:
+The GUI provides:
 - **File picker** - Select files to encrypt/decrypt
 - **Password field** - Enter your encryption key
-- **Encrypt button** (blue) - Encrypt the selected file
-- **Decrypt button** (green) - Decrypt .enc files
+- **Encrypt button** - Encrypt the selected file
+- **Decrypt button** - Decrypt .enc files
 - **Progress indicator** - Visual feedback during operations
 - **Status messages** - Real-time operation status
 
@@ -221,32 +219,21 @@ help                   Display help message
 ## Security Features
 
 1. **Strong Encryption**: Uses AES-256-CBC encryption from OpenSSL's EVP API
-2. **Random IV**: Generates a unique random IV for each encryption operation
-3. **PKCS7 Padding**: Implements proper block padding for secure encryption
-4. **Memory Safety**: Utilizes modern C++ features for memory-safe operations
-5. **Key Handling**: Securely processes encryption keys with zero-initialization
+2. **PBKDF2 Key Derivation**: Derives keys using PBKDF2-HMAC-SHA256 with 100,000 iterations and random salt
+3. **HMAC Authentication**: HMAC-SHA256 tag for integrity verification and tamper detection
+4. **Random IV**: Generates a unique random IV for each encryption operation
+5. **PKCS7 Padding**: Implements proper block padding for secure encryption
+6. **Memory Safety**: Sensitive key material is securely wiped from memory after use
 
 ## Implementation Details
 
 The project consists of three main components:
 
-1. **AESKey Class**: Manages encryption keys with secure initialization
-```cpp
-startLine: 12
-endLine: 20
-```
+1. **AESKey Class**: Manages encryption keys with PBKDF2 key derivation and secure cleanup
+2. **AESCrypt Class**: Handles AES-256-CBC encryption/decryption with RAII resource management
+3. **encrypt/decrypt functions**: File-level operations with HMAC authentication and error handling
 
-2. **AESCrypt Class**: Handles encryption/decryption operations using OpenSSL
-```cpp
-startLine: 23
-endLine: 96
-```
-
-3. **FileHandler Class**: Manages file operations with proper error handling
-```cpp
-startLine: 99
-endLine: 125
-```
+See the source files in `src/` for detailed implementation.
 
 ## Security Considerations
 
@@ -277,11 +264,11 @@ endLine: 125
 
 The project uses GitHub Actions for continuous integration and deployment:
 
-- **build.yml** - Runs on every push/PR:
-  - Builds on Fedora 39 container
-  - Builds with nix-shell (NixOS 24.05)
-  - Runs CLI encryption/decryption tests
-  - Builds and tests Podman container
+- **build-release.yml** - Runs on every push/PR:
+  - Builds on Ubuntu
+  - Runs static analysis with CodeQL
+  - Runs unit tests
+  - Builds .deb package on version tags
 
 - **build-deb.yml** - Runs on version tags (v*):
   - Builds .deb package for Debian/Ubuntu
@@ -296,12 +283,14 @@ git push origin v1.0.0
 
 ## Testing
 
-The project includes comprehensive testing for:
-- Encryption/decryption operations
-- File handling
-- Key management
-- Error conditions
-- Memory safety
+Tests are written using the Catch2 framework and located in the `tests/` directory.
+Run them with:
+
+```bash
+mkdir build && cd build
+cmake .. -DBUILD_TESTS=ON
+make && ctest
+```
 
 ## License
 

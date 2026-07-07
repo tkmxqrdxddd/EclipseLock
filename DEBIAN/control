@@ -3,7 +3,7 @@ Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: amd64
-Depends: libc6 (>= 2.14), libssl3 | libssl1.1
+Depends: libc6 (>= 2.14), libssl3 | libssl1.1, libgtkmm-3.0-1v5
 Maintainer: Jan Fidra <tkmxqrd@gmail.com>
 Description: AES File Encryption Tool
  eclipselock is a command-line tool for encrypting and

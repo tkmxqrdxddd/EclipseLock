@@ -1,5 +1,8 @@
-# EclipseLock Windows Native Build Script
-# Requires: Visual Studio 2019/2022, vcpkg with wxwidgets and openssl
+# EclipseLock Windows Native Build Script (GTKmm version)
+# NOTE: EclipseLock v2.x uses GTKmm 3.0, which has limited MSVC support.
+# This script is kept for reference; building on Windows currently requires
+# MSYS2 or WSL. See README for details.
+# Requires: Visual Studio 2019/2022, vcpkg with openssl
 
 param(
     [string]$BuildType = "Release",
@@ -34,8 +37,7 @@ if ($InstallDeps) {
         exit 1
     }
     
-    Write-Host "Installing wxwidgets and openssl..." -ForegroundColor Yellow
-    vcpkg install wxwidgets:$VcpkgTriplet
+    Write-Host "Installing openssl..." -ForegroundColor Yellow
     vcpkg install openssl:$VcpkgTriplet
     
     Write-Host "Dependencies installed successfully!" -ForegroundColor Green
@@ -121,7 +123,7 @@ if (Test-Path "$vcpkgRoot\scripts\buildsystems\vcpkg.cmake") {
     $cmakeArgs[4] = "-DCMAKE_TOOLCHAIN_FILE=$vcpkgRoot\scripts\buildsystems\vcpkg.cmake"
 } else {
     Write-Host "vcpkg not found. Building without vcpkg integration." -ForegroundColor Yellow
-    Write-Host "Please ensure wxWidgets and OpenSSL are installed and in PATH." -ForegroundColor Yellow
+    Write-Host "Please ensure OpenSSL is installed and in PATH." -ForegroundColor Yellow
     $cmakeArgs = @(
         "..",
         "-G", "Visual Studio 17 2022",

@@ -18,7 +18,7 @@ public:
      * and configures the window layout.
      */
     MainWindow();
-    virtual ~MainWindow();
+    ~MainWindow() override = default;
 
 protected:
     void on_encrypt_button_clicked();

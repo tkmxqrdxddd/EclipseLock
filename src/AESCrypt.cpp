@@ -2,6 +2,7 @@
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/crypto.h>
 #include <stdexcept>
 #include <cstring>
 #include <fstream>
@@ -21,47 +22,56 @@ AESKey::AESKey(const std::string& password, const std::array<unsigned char, SALT
     }
 }
 
+AESKey::~AESKey() {
+    OPENSSL_cleanse(key, KEY_SIZE);
+}
+
 const unsigned char* AESKey::getKey() const {
     return key;
 }
 
-AESCrypt::AESCrypt(const AESKey& key) : key_ptr(key.getKey()) {
+AESCrypt::AESCrypt(std::shared_ptr<const AESKey> key) : m_key(std::move(key)) {
+}
+
+namespace {
+    struct CipherCtxDeleter {
+        void operator()(EVP_CIPHER_CTX* ctx) const noexcept {
+            EVP_CIPHER_CTX_free(ctx);
+        }
+    };
+    using CipherCtxPtr = std::unique_ptr<EVP_CIPHER_CTX, CipherCtxDeleter>;
 }
 
 std::vector<unsigned char> AESCrypt::enc(const std::vector<unsigned char>& data, unsigned char* iv) {
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    CipherCtxPtr ctx(EVP_CIPHER_CTX_new());
     if (!ctx) {
         throw std::runtime_error("Failed to create cipher context");
     }
 
-    std::vector<unsigned char> ciphertext(data.size() + AES_BLOCK_SIZE);
+    std::vector<unsigned char> ciphertext(data.size() + EVP_CIPHER_CTX_block_size(ctx.get()));
     int len;
 
-    if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key_ptr, iv)) {
-        EVP_CIPHER_CTX_free(ctx);
+    if (!EVP_EncryptInit_ex(ctx.get(), EVP_aes_256_cbc(), NULL, m_key->getKey(), iv)) {
         throw std::runtime_error("Encryption initialization failed");
     }
 
-    if (!EVP_EncryptUpdate(ctx, ciphertext.data(), &len, data.data(), data.size())) {
-        EVP_CIPHER_CTX_free(ctx);
+    if (!EVP_EncryptUpdate(ctx.get(), ciphertext.data(), &len, data.data(), data.size())) {
         throw std::runtime_error("Encryption update failed");
     }
 
     int ciphertext_len = len;
 
-    if (!EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len)) {
-        EVP_CIPHER_CTX_free(ctx);
+    if (!EVP_EncryptFinal_ex(ctx.get(), ciphertext.data() + len, &len)) {
         throw std::runtime_error("Encryption finalization failed");
     }
 
     ciphertext_len += len;
     ciphertext.resize(ciphertext_len);
-    EVP_CIPHER_CTX_free(ctx);
     return ciphertext;
 }
 
 std::vector<unsigned char> AESCrypt::dec(const std::vector<unsigned char>& data, unsigned char* iv) {
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    CipherCtxPtr ctx(EVP_CIPHER_CTX_new());
     if (!ctx) {
         throw std::runtime_error("Failed to create cipher context");
     }
@@ -69,26 +79,22 @@ std::vector<unsigned char> AESCrypt::dec(const std::vector<unsigned char>& data,
     std::vector<unsigned char> plaintext(data.size());
     int len;
 
-    if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key_ptr, iv)) {
-        EVP_CIPHER_CTX_free(ctx);
+    if (!EVP_DecryptInit_ex(ctx.get(), EVP_aes_256_cbc(), NULL, m_key->getKey(), iv)) {
         throw std::runtime_error("Decryption initialization failed");
     }
 
-    if (!EVP_DecryptUpdate(ctx, plaintext.data(), &len, data.data(), data.size())) {
-        EVP_CIPHER_CTX_free(ctx);
+    if (!EVP_DecryptUpdate(ctx.get(), plaintext.data(), &len, data.data(), data.size())) {
         throw std::runtime_error("Decryption update failed");
     }
 
     int plaintext_len = len;
 
-    if (!EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len)) {
-        EVP_CIPHER_CTX_free(ctx);
+    if (!EVP_DecryptFinal_ex(ctx.get(), plaintext.data() + len, &len)) {
         throw std::runtime_error("Decryption finalization failed");
     }
 
     plaintext_len += len;
     plaintext.resize(plaintext_len);
-    EVP_CIPHER_CTX_free(ctx);
     return plaintext;
 }
 
@@ -112,8 +118,28 @@ bool AESCrypt::verifyHMAC(const unsigned char* key,
                           const std::vector<unsigned char>& data,
                           const std::array<unsigned char, HMAC_SIZE>& expected_tag) {
     auto computed_tag = computeHMAC(key, data);
-
     return CRYPTO_memcmp(computed_tag.data(), expected_tag.data(), HMAC_SIZE) == 0;
+}
+
+static std::vector<unsigned char> readFile(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Failed to open file: " + path);
+    }
+    return std::vector<unsigned char>(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>()
+    );
+}
+
+static void writeFile(const std::string& path, const std::vector<unsigned char>& data) {
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Failed to create file: " + path);
+    }
+    if (!file.write(reinterpret_cast<const char*>(data.data()), data.size())) {
+        throw std::runtime_error("Failed to write file: " + path);
+    }
 }
 
 std::string encrypt(const std::string& filename, const std::string& password) {
@@ -122,47 +148,44 @@ std::string encrypt(const std::string& filename, const std::string& password) {
         throw std::runtime_error("Failed to generate random salt");
     }
 
-    AESKey aesKey(password, salt);
+    auto aesKey = std::make_shared<const AESKey>(password, salt);
 
     std::array<unsigned char, IV_SIZE> iv;
     if (RAND_bytes(iv.data(), iv.size()) != 1) {
         throw std::runtime_error("Failed to generate random IV");
     }
 
-    std::ifstream inputFile(filename, std::ios::binary);
-    if (!inputFile) {
-        throw std::runtime_error("Failed to open file for encryption");
-    }
-
-    std::vector<unsigned char> data(
-        (std::istreambuf_iterator<char>(inputFile)),
-        std::istreambuf_iterator<char>()
-    );
-    inputFile.close();
+    std::vector<unsigned char> data = readFile(filename);
 
     AESCrypt aesCrypt(aesKey);
     std::vector<unsigned char> ciphertext = aesCrypt.enc(data, iv.data());
 
-    auto hmac = AESCrypt::computeHMAC(aesKey.getKey(), ciphertext);
+    auto hmac = AESCrypt::computeHMAC(aesKey->getKey(), ciphertext);
 
-    std::ofstream outputFile(filename + ".enc", std::ios::binary);
+    std::string outputPath = filename + ".enc";
+
+    std::ofstream outputFile(outputPath, std::ios::binary);
     if (!outputFile) {
-        throw std::runtime_error("Failed to create encrypted file");
+        throw std::runtime_error("Failed to create encrypted file: " + outputPath);
     }
 
-    outputFile.write(reinterpret_cast<const char*>(salt.data()), salt.size());
-    outputFile.write(reinterpret_cast<const char*>(iv.data()), iv.size());
-    outputFile.write(reinterpret_cast<const char*>(ciphertext.data()), ciphertext.size());
-    outputFile.write(reinterpret_cast<const char*>(hmac.data()), hmac.size());
-    outputFile.close();
+    if (!outputFile.write(reinterpret_cast<const char*>(salt.data()), salt.size()) ||
+        !outputFile.write(reinterpret_cast<const char*>(iv.data()), iv.size()) ||
+        !outputFile.write(reinterpret_cast<const char*>(ciphertext.data()), ciphertext.size()) ||
+        !outputFile.write(reinterpret_cast<const char*>(hmac.data()), hmac.size())) {
+        outputFile.close();
+        std::remove(outputPath.c_str());
+        throw std::runtime_error("Failed to write encrypted data to: " + outputPath);
+    }
 
-    return filename + ".enc";
+    outputFile.close();
+    return outputPath;
 }
 
 void decrypt(const std::string& filename, const std::string& password) {
     std::ifstream inputFile(filename, std::ios::binary);
     if (!inputFile) {
-        throw std::runtime_error("Failed to open file for decryption");
+        throw std::runtime_error("Failed to open file for decryption: " + filename);
     }
 
     inputFile.seekg(0, std::ios::end);
@@ -174,31 +197,30 @@ void decrypt(const std::string& filename, const std::string& password) {
     }
 
     std::array<unsigned char, SALT_SIZE> salt;
-    inputFile.read(reinterpret_cast<char*>(salt.data()), salt.size());
-    if (!inputFile) {
+    if (!inputFile.read(reinterpret_cast<char*>(salt.data()), salt.size())) {
         throw std::runtime_error("Failed to read salt from encrypted file");
     }
 
     std::array<unsigned char, IV_SIZE> iv;
-    inputFile.read(reinterpret_cast<char*>(iv.data()), iv.size());
-    if (!inputFile) {
+    if (!inputFile.read(reinterpret_cast<char*>(iv.data()), iv.size())) {
         throw std::runtime_error("Failed to read IV from encrypted file");
     }
 
     size_t cryptoDataSize = fileSize - SALT_SIZE - IV_SIZE - HMAC_SIZE;
     std::vector<unsigned char> ciphertext(cryptoDataSize);
-    inputFile.read(reinterpret_cast<char*>(ciphertext.data()), cryptoDataSize);
-    if (!inputFile) {
+    if (!inputFile.read(reinterpret_cast<char*>(ciphertext.data()), cryptoDataSize)) {
         throw std::runtime_error("Failed to read ciphertext from encrypted file");
     }
 
     std::array<unsigned char, HMAC_SIZE> storedHmac;
-    inputFile.read(reinterpret_cast<char*>(storedHmac.data()), storedHmac.size());
+    if (!inputFile.read(reinterpret_cast<char*>(storedHmac.data()), storedHmac.size())) {
+        throw std::runtime_error("Failed to read HMAC from encrypted file");
+    }
     inputFile.close();
 
-    AESKey aesKey(password, salt);
+    auto aesKey = std::make_shared<const AESKey>(password, salt);
 
-    if (!AESCrypt::verifyHMAC(aesKey.getKey(), ciphertext, storedHmac)) {
+    if (!AESCrypt::verifyHMAC(aesKey->getKey(), ciphertext, storedHmac)) {
         throw std::runtime_error("HMAC verification failed: file may be tampered or corrupted");
     }
 
@@ -215,8 +237,14 @@ void decrypt(const std::string& filename, const std::string& password) {
 
     std::ofstream outputFile(outputFilename, std::ios::binary);
     if (!outputFile) {
-        throw std::runtime_error("Failed to create decrypted file");
+        throw std::runtime_error("Failed to create decrypted file: " + outputFilename);
     }
-    outputFile.write(reinterpret_cast<const char*>(plaintext.data()), plaintext.size());
+
+    if (!outputFile.write(reinterpret_cast<const char*>(plaintext.data()), plaintext.size())) {
+        outputFile.close();
+        std::remove(outputFilename.c_str());
+        throw std::runtime_error("Failed to write decrypted data to: " + outputFilename);
+    }
+
     outputFile.close();
 }

@@ -11,8 +11,7 @@ RUN useradd -m -G wheel builder && \
 # Install dependencies (both build and runtime)
 RUN pacman -Sy --noconfirm \
     openssl \
-    wxwidgets-common \
-    wxwidgets-gtk3 \
+    gtkmm3 \
     cmake \
     gtk3 \
     pkgconf \

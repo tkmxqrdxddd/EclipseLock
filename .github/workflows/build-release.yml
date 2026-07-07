@@ -44,6 +44,14 @@ jobs:
           cmake .. -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
 
+      - name: Build and run tests
+        run: |
+          mkdir -p build-tests
+          cd build-tests
+          cmake .. -DBUILD_TESTS=ON
+          make -j$(nproc)
+          ctest --output-on-failure
+
       - name: Run CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
